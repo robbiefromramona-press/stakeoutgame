@@ -1,0 +1,17 @@
+# Local-only port reference — the tested v6/v7 prototype the engine was ported
+# from. Kept on disk so the logic can be diffed against, deliberately not
+# committed or deployed.
+/reference/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Nothing here needs a build step, but just in case
+node_modules/
+dist/
+.cache/
+*.log

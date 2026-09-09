@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STAKE-OUT — TotalStationTech Field Simulator</title>
+<meta name="description" content="Stake-Out: a browser-based total-station staking simulator by TotalStationTech. Hunt the hidden point, level the bubble, measure within tolerance." />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<!-- ====================================================================== -->
+<!-- SCREEN 1 — MAIN MENU                                                   -->
+<!-- ====================================================================== -->
+<section id="screen-menu" class="screen">
+  <div class="stage stage--menu">
+
+    <!-- the dark apron below the artwork that carries the START button -->
+    <div class="menu-band" aria-hidden="true"></div>
+
+    <div class="course-complete" id="courseComplete" hidden>
+      <span>★ COURSE COMPLETE — ALL FOUR LEVELS STAKED ★</span>
+    </div>
+
+    <!-- level select: real buttons sitting over the four rows in the art -->
+    <div class="level-hit lvl1" data-level="0" role="button" tabindex="0"
+         aria-label="Level 1 — Rookie"><span class="hit-ring"></span></div>
+    <div class="level-hit lvl2" data-level="1" role="button" tabindex="0"
+         aria-label="Level 2 — Journeyman"><span class="hit-ring"></span></div>
+    <div class="level-hit lvl3" data-level="2" role="button" tabindex="0"
+         aria-label="Level 3 — Foreman"><span class="hit-ring"></span></div>
+    <div class="level-hit lvl4" data-level="3" role="button" tabindex="0"
+         aria-label="Level 4 — No Room For Error"><span class="hit-ring"></span></div>
+
+    <!-- mode selector, over the blue pill in the art -->
+    <div class="mode-hit">
+      <select id="modeSelect" aria-label="Instrument mode">
+        <option value="bipod">MODE: BIPOD</option>
+        <option value="pole">MODE: POLE</option>
+      </select>
+      <span class="mode-face" id="modeFace" aria-hidden="true">MODE: BIPOD <b>&#9662;</b></span>
+    </div>
+
+    <!-- START: not in the concept art, styled to match the level ribbons -->
+    <button type="button" id="startBtn" class="ribbon-btn start-btn">
+      <span class="ribbon-label">START</span>
+      <span class="ribbon-chev">&#10095;</span>
+    </button>
+
+    <p class="menu-hint" id="menuHint">LEVEL 1 &mdash; ROOKIE &nbsp;&bull;&nbsp; BIPOD &nbsp;&bull;&nbsp; 3 POINTS &nbsp;&bull;&nbsp; &plusmn;0.300 ft</p>
+  </div>
+</section>
+
+
+<!-- ====================================================================== -->
+<!-- SCREEN 2 — PLAYER UI                                                   -->
+<!-- ====================================================================== -->
+<section id="screen-player" class="screen">
+  <div class="stage stage--player" id="playerStage">
+
+    <!-- header strip: LEVEL X | POINT Y OF Z -->
+    <div class="hud-head">
+      <span class="hud-y">LEVEL</span> <span class="hud-w" id="hudLevel">1</span>
+      <span class="hud-bar">|</span>
+      <span class="hud-y">POINT</span> <span class="hud-w" id="hudPoint">1</span>
+      <span class="hud-y">OF</span> <span class="hud-w" id="hudTotal">3</span>
+    </div>
+
+    <!-- left panel: point position (hidden) -->
+    <div class="panel-fill pos-fill" aria-hidden="true"></div>
+    <canvas id="posCanvas" class="gauge pos-gauge" width="856" height="856"
+            aria-label="Point position gauge"></canvas>
+
+    <!-- right panel: bubble level -->
+    <div class="panel-fill bub-fill" aria-hidden="true"></div>
+    <canvas id="bubbleCanvas" class="gauge bub-gauge" width="860" height="860"
+            aria-label="Bubble level gauge"></canvas>
+
+    <!-- numeric readouts, over the two boxes at the foot of the left panel -->
+    <div class="readout ro-1">
+      <span class="ro-v" id="roLeft">---</span>
+      <span class="ro-v" id="roRight">---</span>
+      <span class="ro-u">ft</span>
+    </div>
+    <div class="readout ro-2">
+      <span class="ro-v" id="roTo">---</span>
+      <span class="ro-v" id="roAway">---</span>
+      <span class="ro-u">ft</span>
+    </div>
+
+    <p class="shot-msg" id="shotMsg"></p>
+
+    <!-- start gate -->
+    <div class="start-gate" id="startGate">
+      <div>
+        <p class="sg-1">PRESS SPACEBAR</p>
+        <p class="sg-2">OR CLICK TO START</p>
+        <p class="sg-3">W A S D to walk &nbsp;&bull;&nbsp; MOUSE over the vial levels the bubble (inverted)<br />
+           LEFT-CLICK anywhere to measure &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ====================================================================== -->
+<!-- SCREEN 3 — FIELD REPORT                                                -->
+<!-- ====================================================================== -->
+<section id="screen-report" class="screen">
+  <div class="stage stage--report">
+
+    <div class="report-band" aria-hidden="true"></div>
+
+    <!-- meta block values (labels are baked into the artwork) -->
+    <div class="meta-val meta-1" id="metaJob">STAKE-OUT SIM</div>
+    <div class="meta-val meta-2" id="metaDate">&mdash;</div>
+    <div class="meta-val meta-3" id="metaOperator">FIELD CREW</div>
+    <div class="meta-val meta-4" id="metaInstrument">SIMULATED TS</div>
+
+    <!-- the ten row slots, drawn over the artwork's table body -->
+    <div class="report-body" id="reportBody"></div>
+
+    <!-- summary figures -->
+    <div class="sum sum-1" id="sumTotal">0</div>
+    <div class="sum sum-2 ok" id="sumPassed">0</div>
+    <div class="sum sum-3 bad" id="sumFailed">0</div>
+    <div class="sum sum-4" id="sumRate">0%</div>
+
+    <!-- buttons: new, styled to match the report's ticket look -->
+    <div class="report-actions">
+      <button type="button" id="saveQuitBtn" class="ticket-btn ticket-btn--ghost">SAVE / QUIT</button>
+      <button type="button" id="continueBtn" class="ticket-btn">CONTINUE &#10095;</button>
+    </div>
+    <p class="report-note" id="reportNote"></p>
+  </div>
+</section>
+
+<script src="js/game-engine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

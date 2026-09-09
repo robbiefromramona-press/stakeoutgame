@@ -1,0 +1,409 @@
+/* ==========================================================================
+   STAKE-OUT V8 — TotalStationTech field simulator
+   --------------------------------------------------------------------------
+   Every screen is a .stage: a fixed-aspect box carrying one of the concept-art
+   PNGs as its background, with real controls positioned on top in percentages
+   measured off the artwork itself. Sizes inside a stage use container units
+   (1cqw = 1% of stage width) so the whole screen scales as one piece.
+   ========================================================================== */
+
+:root {
+  --yellow:        #f5c518;
+  --yellow-bright: #ffd83d;
+  --blue:          #6e7bff;
+  --blue-deep:     #4a4de0;
+  --green:         #22d422;
+  --red:           #e53935;
+  --panel-ink:     #151616;  /* sampled from the player-UI panel interiors */
+  --hud-ink:       #0d0e0d;  /* sampled from the player-UI header strip     */
+
+  --font-display: 'Arial Narrow', 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  --font-mono:    'Courier New', Consolas, 'Liberation Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #050505;
+  color: var(--yellow);
+  font-family: var(--font-mono);
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body { user-select: none; -webkit-user-select: none; }
+
+/* ---- screens ------------------------------------------------------------ */
+.screen { display: none; }
+.screen.is-active {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.stage {
+  position: relative;
+  container-type: size;
+  width: min(100vw, calc(100vh * var(--aw) / var(--ah)));
+  aspect-ratio: var(--aw) / var(--ah);
+  background-repeat: no-repeat;
+  background-position: top center;
+  background-size: 100% auto;
+  overflow: hidden;
+}
+
+.stage--menu   { --aw: 1535; --ah: 1230; background-image: url("../assets/img/main_menu.png"); }
+.stage--player { --aw: 1536; --ah: 1024; background-image: url("../assets/img/main_player_UI.png");
+                 background-size: 100% 100%; cursor: crosshair; }
+.stage--report { --aw: 1536; --ah: 1190; background-image: url("../assets/img/field_report.png");
+                 background-color: #000; }
+
+/* ==========================================================================
+   SCREEN 1 — MAIN MENU
+   ========================================================================== */
+
+/* apron below the artwork carrying the START button */
+.menu-band {
+  position: absolute; left: 0; right: 0;
+  top: 82%; bottom: 0;
+  background: linear-gradient(to bottom,
+              rgba(9,9,10,0) 0%, rgba(9,9,10,.78) 26%, #090a0b 55%, #060607 100%);
+  pointer-events: none;
+}
+.menu-band::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 0.7cqw;
+  background-image: repeating-linear-gradient(135deg,
+                    var(--yellow) 0 1.1cqw, #0a0a0a 1.1cqw 2.2cqw);
+  opacity: .85;
+}
+
+.course-complete {
+  position: absolute; left: 50%; top: 1.4%;
+  transform: translateX(-50%);
+  z-index: 6;
+  background: linear-gradient(180deg, var(--yellow-bright), var(--yellow));
+  color: #0a0a0a;
+  font-family: var(--font-display);
+  font-weight: 700; letter-spacing: .22cqw;
+  font-size: 1.55cqw; padding: .75cqw 2.4cqw;
+  clip-path: polygon(1.1cqw 0, 100% 0, calc(100% - 1.1cqw) 100%, 0 100%);
+  box-shadow: 0 0 2.5cqw rgba(245,197,24,.55);
+  animation: ccPulse 1.6s ease-in-out infinite;
+}
+@keyframes ccPulse { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
+
+/* --- level rows ----------------------------------------------------------
+   The artwork bakes Level 1 in as the highlighted row, so selection state is
+   drawn here instead: unselected rows get a dark veil, the selected row gets
+   a bright ring and glow. That reads correctly whichever row is chosen. */
+.level-hit {
+  position: absolute;
+  border: 0; padding: 0; margin: 0;
+  background: rgba(4,4,5,.62);
+  border-radius: 1.25cqw;
+  cursor: pointer;
+  transition: background .14s ease, box-shadow .14s ease;
+}
+.level-hit:hover  { background: rgba(4,4,5,.34); }
+.level-hit:focus-visible { outline: .22cqw solid #fff; outline-offset: .2cqw; }
+
+.level-hit .hit-ring {
+  position: absolute; inset: 0;
+  border-radius: 1.25cqw;
+  border: .32cqw solid transparent;
+  transition: border-color .14s ease, box-shadow .14s ease;
+  pointer-events: none;
+}
+.level-hit.is-selected { background: rgba(4,4,5,0); }
+.level-hit.is-selected .hit-ring {
+  border-color: var(--yellow-bright);
+  box-shadow: 0 0 1.8cqw rgba(255,216,61,.85), inset 0 0 1.2cqw rgba(255,216,61,.35);
+}
+
+.lvl1 { left: 5.60%;  top: 39.27%; width: 43.32%; height: 11.38%; }
+.lvl2 { left: 50.55%; top: 39.19%; width: 43.13%; height: 11.54%; }
+.lvl3 { left: 25.47%; top: 52.44%; width: 48.66%; height: 10.57%; }
+.lvl4 { left: 25.47%; top: 64.63%; width: 48.66%; height: 10.57%; }
+
+/* --- mode pill -----------------------------------------------------------
+   Redrawn rather than overlaid: the artwork's pill says "BIPOD", so the text
+   has to be ours to be able to say "POLE". Styled to match the art's pill. */
+.mode-hit {
+  position: absolute;
+  left: 33.62%; top: 76.91%; width: 32.38%; height: 7.07%;
+  border-radius: 1.15cqw;
+  background: linear-gradient(180deg, #101a42 0%, #070c1e 60%, #04070f 100%);
+  border: .3cqw solid var(--blue-deep);
+  box-shadow: 0 0 1.6cqw rgba(90,92,245,.55), inset 0 0 1.2cqw rgba(90,92,245,.22);
+  display: grid; place-items: center;
+  overflow: hidden;
+}
+.mode-hit #modeSelect {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0; cursor: pointer;
+  font-size: 2cqw;
+}
+.mode-face {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.5cqw;
+  letter-spacing: .32cqw;
+  color: var(--blue);
+  text-shadow: 0 0 1cqw rgba(110,123,255,.7);
+  pointer-events: none;
+}
+.mode-face b { font-size: 2cqw; }
+
+/* --- START --------------------------------------------------------------- */
+.ribbon-btn {
+  position: absolute;
+  display: flex; align-items: center; justify-content: center; gap: 1.5cqw;
+  border: .32cqw solid var(--yellow);
+  background: linear-gradient(180deg, var(--yellow-bright) 0%, var(--yellow) 55%, #d9ab08 100%);
+  color: #0a0a0a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 1.25cqw;
+  box-shadow: 0 0 2.2cqw rgba(245,197,24,.5), 0 .5cqw 1.4cqw rgba(0,0,0,.65);
+  transition: transform .1s ease, box-shadow .14s ease, filter .14s ease;
+}
+.ribbon-btn:hover  { filter: brightness(1.08); box-shadow: 0 0 3.2cqw rgba(255,216,61,.8), 0 .5cqw 1.4cqw rgba(0,0,0,.65); }
+.ribbon-btn:active { transform: translateY(.25cqw); }
+.ribbon-btn:focus-visible { outline: .22cqw solid #fff; outline-offset: .3cqw; }
+
+.start-btn { left: 33.62%; top: 87.80%; width: 32.38%; height: 7.80%; }
+.start-btn .ribbon-label { font-size: 3.4cqw; letter-spacing: .75cqw; }
+.start-btn .ribbon-chev  { font-size: 2.6cqw; }
+
+.menu-hint {
+  position: absolute; left: 0; right: 0; top: 96.4%;
+  margin: 0; text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.28cqw; letter-spacing: .28cqw;
+  color: #8e8e8e;
+}
+
+/* ==========================================================================
+   SCREEN 2 — PLAYER UI
+   ========================================================================== */
+
+/* header strip — covers the artwork's baked "LEVEL 1 | POINT 3 OF 3" */
+.hud-head {
+  position: absolute;
+  left: 24.74%; top: 20.51%; width: 50.78%; height: 3.52%;
+  background: var(--hud-ink);
+  display: flex; align-items: center; justify-content: center; gap: .8cqw;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.3cqw;
+  letter-spacing: .42cqw;
+  white-space: nowrap;
+}
+.hud-y   { color: var(--yellow); }
+.hud-w   { color: #fff; }
+.hud-bar { color: var(--yellow); opacity: .8; margin: 0 .6cqw; }
+
+/* opaque fills that black out the artwork's baked gauges */
+.panel-fill { position: absolute; background: var(--panel-ink); }
+.pos-fill { left: 22.20%; top: 33.69%; width: 23.96%; height: 32.42%; }
+.bub-fill { left: 54.69%; top: 35.06%; width: 23.11%; height: 31.15%; }
+
+.gauge { position: absolute; display: block; }
+.pos-gauge { left: 21.32%; top: 30.71%; width: 25.59%; height: 38.38%; }
+.bub-gauge { left: 52.67%; top: 29.59%; width: 27.08%; height: 40.63%; }
+
+/* numeric readouts over the two boxes at the foot of the left panel */
+.readout {
+  position: absolute;
+  background: var(--panel-ink);
+  display: flex; align-items: center; justify-content: center; gap: .45cqw;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.7cqw;
+  color: #fff;
+  white-space: nowrap;
+}
+/* both readings reserve the same width whichever one is live, so the pair
+   stays centred in the box instead of jumping as digits appear. Sized so the
+   widest reading ("12.199") still clears the box's painted border. */
+.ro-v { min-width: 4.4cqw; text-align: center; }
+.ro-1 { left: 18.75%; top: 70.21%; width: 14.32%; height: 5.18%; }
+.ro-2 { left: 34.64%; top: 70.21%; width: 13.87%; height: 5.18%; }
+.ro-u { color: var(--yellow); }
+
+/* result toast — shown for the half-second between points */
+.shot-msg {
+  position: absolute; left: 17.25%; width: 65.56%; top: 45.5%;
+  margin: 0; text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 2.5cqw; letter-spacing: .35cqw;
+  padding: .9cqw 0;
+  background: rgba(0,0,0,.86);
+  border-top: .18cqw solid currentColor;
+  border-bottom: .18cqw solid currentColor;
+  opacity: 0; transition: opacity .12s ease;
+  pointer-events: none;
+}
+.shot-msg.is-on { opacity: 1; }
+.shot-msg.pass { color: #4caf50; }
+.shot-msg.fail { color: var(--red); }
+
+/* start gate over the two panels */
+.start-gate {
+  position: absolute;
+  left: 17.25%; top: 25.20%; width: 65.56%; height: 51.56%;
+  background: rgba(0,0,0,.87);
+  display: grid; place-items: center; text-align: center;
+  color: var(--yellow);
+  font-family: var(--font-display);
+  z-index: 4;
+}
+.start-gate[hidden] { display: none; }
+.sg-1 { margin: 0; font-size: 3.6cqw; font-weight: 700; letter-spacing: .6cqw; animation: sgPulse 1.2s infinite; }
+.sg-2 { margin: .6cqw 0 0; font-size: 2.3cqw; font-weight: 700; letter-spacing: .45cqw; color: #fff; animation: sgPulse 1.2s infinite; }
+.sg-3 { margin: 2.6cqw 0 0; font-family: var(--font-mono); font-size: 1.25cqw; line-height: 1.9; color: #9a9a9a; letter-spacing: .05cqw; }
+@keyframes sgPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* ==========================================================================
+   SCREEN 3 — FIELD REPORT
+   ========================================================================== */
+
+.report-band {
+  position: absolute; left: 0; right: 0; top: 86.05%; bottom: 0;
+  background: #000;
+  pointer-events: none;
+}
+.report-band::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 0.6cqw;
+  background-image: repeating-linear-gradient(135deg,
+                    var(--yellow) 0 1cqw, #0a0a0a 1cqw 2cqw);
+  opacity: .85;
+}
+
+/* meta block values (labels stay part of the artwork) */
+.meta-val {
+  position: absolute;
+  left: 81.90%; width: 15.43%; height: 2.52%;
+  background: #000;
+  display: flex; align-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.5cqw;
+  letter-spacing: .06cqw;
+  color: #fff;
+  white-space: nowrap; overflow: hidden;
+}
+.meta-1 { top: 2.35%; }
+.meta-2 { top: 5.46%; }
+.meta-3 { top: 8.40%; }
+.meta-4 { top: 11.43%; }
+
+/* the table body: ten fixed slots drawn over the artwork's grid */
+.report-body {
+  position: absolute;
+  left: 2.21%; top: 20.50%; width: 95.51%; height: 45.04%;
+  background: #000;
+  display: grid;
+  grid-template-rows: repeat(10, 1fr);
+}
+.rep-row {
+  display: grid;
+  grid-template-columns: 20.01% 30.95% 26.04% 23.01%;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,.22);
+}
+.rep-row:last-child { border-bottom: 0; }
+.rep-row > div {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 2.3cqw;
+  letter-spacing: .08cqw;
+  border-right: 1px solid rgba(255,255,255,.22);
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.rep-row > div:last-child { border-right: 0; }
+.rep-c-point { color: var(--yellow); }
+.rep-c-time  { color: #fff; }
+.rep-c-err   { color: var(--yellow); }
+
+.rep-chip {
+  display: inline-block;
+  min-width: 62%;
+  padding: .32cqw 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.35cqw;
+  letter-spacing: .25cqw;
+  border-radius: .3cqw;
+  color: #000;
+}
+.rep-chip.pass { background: #00e83c; }
+.rep-chip.fail { background: #ff1f1f; }
+
+/* summary figures */
+.sum {
+  position: absolute;
+  top: 71.43%; height: 8.40%;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 7.3cqw;
+  line-height: 1;
+  letter-spacing: .1cqw;
+  color: var(--yellow);
+}
+.sum.ok  { color: #00e83c; }
+.sum.bad { color: #ff1f1f; }
+.sum-1 { left: 9.77%;  width: 12.37%; }
+.sum-2 { left: 32.55%; width: 11.72%; }
+.sum-3 { left: 54.04%; width: 11.39%; }
+.sum-4 { left: 74.87%; width: 17.58%; }
+
+/* action buttons */
+.report-actions {
+  position: absolute; left: 0; right: 0; top: 88.4%;
+  display: flex; justify-content: center; gap: 3cqw;
+}
+.ticket-btn {
+  border: .28cqw solid var(--yellow);
+  background: linear-gradient(180deg, var(--yellow-bright) 0%, var(--yellow) 55%, #d9ab08 100%);
+  color: #0a0a0a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.3cqw;
+  letter-spacing: .4cqw;
+  padding: 1.1cqw 3.6cqw;
+  cursor: pointer;
+  clip-path: polygon(1.1cqw 0, 100% 0, 100% calc(100% - 1.1cqw), calc(100% - 1.1cqw) 100%, 0 100%, 0 1.1cqw);
+  transition: filter .14s ease, transform .1s ease;
+}
+.ticket-btn:hover  { filter: brightness(1.09); }
+.ticket-btn:active { transform: translateY(.22cqw); }
+.ticket-btn:focus-visible { outline: .2cqw solid #fff; outline-offset: .3cqw; }
+.ticket-btn--ghost {
+  background: #0a0a0a;
+  color: var(--yellow);
+}
+.ticket-btn--ghost:hover { background: #161616; }
+
+.report-note {
+  position: absolute; left: 0; right: 0; top: 96.2%;
+  margin: 0; text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.3cqw; letter-spacing: .25cqw;
+  color: #8e8e8e;
+  min-height: 1.6cqw;
+}
+
+/* ---- small viewports ----------------------------------------------------- */
+@media (max-width: 720px) {
+  .sg-3 { display: none; }
+}
