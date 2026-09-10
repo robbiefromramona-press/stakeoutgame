@@ -149,12 +149,20 @@ const StakeOut = (function () {
     function onBubbleMouseMove(e) {
       if (!active) return;
       const rect = bubbleCanvas.getBoundingClientRect();
+      // A canvas with no layout box (zero-sized viewport, hidden tab, print)
+      // would make the scale factor Infinity and the product NaN. bubbleTarget
+      // feeds the spring, so a single NaN poisons bubble.x/y for the rest of
+      // the round -- it never recovers, and drawBubbleGauge then throws on
+      // every frame. Drop the event instead; there is no sane reading from a
+      // box with no size.
+      if (!rect.width || !rect.height) return;
       const mx = (e.clientX - rect.left) * (BUB_W / rect.width);
       const my = (e.clientY - rect.top) * (BUB_H / rect.height);
       // v7 only tracked the mouse over the bubble half of its single canvas;
       // here the bubble canvas *is* that half, so every move on it counts.
       let bx = (mx - BUBBLE_GAUGE.cx) / BUBBLE_GAUGE.r;
       let by = (my - BUBBLE_GAUGE.cy) / BUBBLE_GAUGE.r;
+      if (!isFinite(bx) || !isFinite(by)) return;
       const mag = Math.hypot(bx, by);
       if (mag > 1) { bx /= mag; by /= mag; }
       // inverted: the bubble's resting point sits opposite wherever the mouse is
