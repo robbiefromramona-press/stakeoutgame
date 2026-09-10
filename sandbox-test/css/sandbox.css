@@ -162,11 +162,12 @@ body {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  padding: 7px 46px;           /* clears the absolutely-placed back button */
+  gap: 3px 10px;
+  padding: 7px 40px;           /* clears the absolutely-placed back button */
   border-bottom: 2px solid var(--edge);
-  font-size: 12px;
-  letter-spacing: 1px;
+  /* sized so the whole strip still fits one line at 320px wide */
+  font-size: clamp(10px, 2.9vw, 12px);
+  letter-spacing: .5px;
 }
 .hud-seg i { color: var(--dim); font-style: normal; }
 .hud-seg b { color: var(--yellow); }
