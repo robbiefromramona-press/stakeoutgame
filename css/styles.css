@@ -1,5 +1,5 @@
 /* ==========================================================================
-   STAKE-OUT V8 — TotalStationTech field simulator
+   STAKE-OUT V9 — TotalStationTech field simulator
    --------------------------------------------------------------------------
    Every screen is a .stage: a fixed-aspect box carrying one of the concept-art
    PNGs as its background, with real controls positioned on top in percentages
@@ -33,7 +33,11 @@ html, body {
   overflow-x: hidden;
 }
 
-body { user-select: none; -webkit-user-select: none; }
+body {
+  user-select: none; -webkit-user-select: none;
+  /* a thumb held on a D-pad must not drag the page or pull-to-refresh */
+  overscroll-behavior: none;
+}
 
 /* ---- screens ------------------------------------------------------------ */
 .screen { display: none; }
@@ -67,9 +71,9 @@ body { user-select: none; -webkit-user-select: none; }
 }
 .stage--player {
   --aw: 1536; --ah: 1024;
-  background-image: url("../assets/img/main_player_UI.png");
-  background-image: image-set(url("../assets/img/main_player_UI.webp") type("image/webp"),
-                              url("../assets/img/main_player_UI.png")  type("image/png"));
+  background-image: url("../assets/img/with_measure_and_clock.png");
+  background-image: image-set(url("../assets/img/with_measure_and_clock.webp") type("image/webp"),
+                              url("../assets/img/with_measure_and_clock.png")  type("image/png"));
   background-size: 100% 100%;
   cursor: crosshair;
 }
@@ -231,7 +235,10 @@ body { user-select: none; -webkit-user-select: none; }
 /* opaque fills that black out the artwork's baked gauges */
 .panel-fill { position: absolute; background: var(--panel-ink); }
 .pos-fill { left: 22.20%; top: 33.69%; width: 23.96%; height: 32.42%; }
-.bub-fill { left: 54.69%; top: 35.06%; width: 23.11%; height: 31.15%; }
+/* The fill stops at y=658/1024 because the TIMESTAMP housing painted into
+   with_measure_and_clock.png starts at y=666 (its white label at y=660).
+   The old V8 fill ran to y=678 and would have clipped the label's top. */
+.bub-fill { left: 54.69%; top: 35.06%; width: 23.11%; height: 29.20%; }
 
 .gauge { position: absolute; display: block; }
 .pos-gauge { left: 21.32%; top: 30.71%; width: 25.59%; height: 38.38%; }
@@ -423,7 +430,220 @@ body { user-select: none; -webkit-user-select: none; }
   min-height: 1.6cqw;
 }
 
+/* ==========================================================================
+   SCREEN 2 - TOUCH CONTROLS
+   --------------------------------------------------------------------------
+   with_measure_and_clock.png paints two D-pads and two MEASURE discs into the
+   instrument bezel. These are the real controls sitting exactly on top of
+   them, positioned from pixel measurements of that 1536x1024 artwork:
+
+     left  D-pad arrows  centres (119,410) (56,476) (182,476) (118,540)
+     right D-pad arrows  centres (1416,410) (1353,476) (1479,476) (1416,540)
+     MEASURE discs       centres (120,668) and (1413,668), r=63
+
+   Each pad is a 3x3 grid of 73.3px cells over a 220px square centred on the
+   pad, so the four hotspots tile the pad without overlapping each other - a
+   thumb sliding between them can never hold two directions at once.
+   ========================================================================== */
+.tc {
+  position: absolute; inset: 0;
+  z-index: 5;
+  pointer-events: none;          /* only the hotspots themselves take taps */
+}
+.tc-hit {
+  position: absolute;
+  pointer-events: auto;
+  -webkit-appearance: none; appearance: none;
+  border: 0; padding: 0; margin: 0;
+  background-color: transparent;
+  cursor: pointer;
+  /* the pads are held, not tapped: kill scroll, pinch and double-tap-zoom so
+     a long press drives the player instead of gesturing the page */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 1.1cqw;
+  transition: background-color .08s linear, box-shadow .08s linear;
+}
+.tc-hit::-moz-focus-inner { border: 0; }
+.tc-hit.is-down {
+  background-color: rgba(245,197,24,.28);
+  box-shadow: inset 0 0 1.6cqw rgba(255,216,61,.55);
+}
+
+/* --- D-pad cells: three columns per pad, three shared rows --------------- */
+.tc-dir { width: 4.774%; height: 7.162%; }
+.row-1 { top: 35.645%; }
+.row-2 { top: 42.806%; }
+.row-3 { top: 49.967%; }
+.pad-l.col-1 { left:  0.586%; }
+.pad-l.col-2 { left:  5.360%; }
+.pad-l.col-3 { left: 10.134%; }
+.pad-r.col-1 { left: 85.059%; }
+.pad-r.col-2 { left: 89.833%; }
+.pad-r.col-3 { left: 94.607%; }
+
+/* --- MEASURE discs ------------------------------------------------------- */
+.tc-measure {
+  top: 59.082%; width: 8.138%; height: 12.207%;
+  border-radius: 50%;
+}
+.meas-l { left:  3.776%; }
+.meas-r { left: 87.923%; }
+.tc-measure.is-down {
+  background-color: rgba(245,197,24,.34);
+  box-shadow: 0 0 2.2cqw rgba(255,216,61,.8), inset 0 0 1.8cqw rgba(255,216,61,.5);
+}
+
+/* ==========================================================================
+   SCREEN 2 - TIMESTAMP: the level stopwatch
+   --------------------------------------------------------------------------
+   Seven-segment digits built from divs - no webfont, no sprite sheet, the same
+   zero-external-asset rule the rest of the type follows. Geometry matches the
+   ghost 88:88:88 in the artwork: housing interior x[826,1227] y[705,777],
+   digits x[877,1179] y[710,772], six 40px digits with 5px inner gaps and 26px
+   colon gaps - that is the 40/5/26 column track list below. .lcd paints over
+   the baked ghosts so the live digits cannot double up on them.
+   ========================================================================== */
+.lcd {
+  position: absolute;
+  left: 53.776%; top: 68.848%; width: 26.107%; height: 7.031%;
+  background: #0d0e0d;          /* sampled from the LCD housing interior */
+  border-radius: .45cqw;
+
+  /* GREEN by default; app.js adds .is-warn past TIME_WARNING_THRESHOLD_SEC */
+  --seg-on:   #2bef2b;
+  --seg-glow: rgba(43,239,43,.55);
+  --seg-off:  #414441;          /* the unlit "ghost" segment */
+}
+.lcd.is-warn {
+  --seg-on:   #ff2a24;
+  --seg-glow: rgba(255,42,36,.55);
+  --seg-off:  #443f3f;
+}
+.lcd-row {
+  position: absolute;
+  left: 12.72%; top: 6.94%; width: 75.31%; height: 86.11%;
+  display: grid;
+  grid-template-columns: 40fr 5fr 40fr 26fr 40fr 5fr 40fr 26fr 40fr 5fr 40fr;
+}
+.lcd-d { position: relative; }
+.lcd-seg {
+  position: absolute;
+  background: var(--seg-off);
+  transition: background-color .12s linear;
+}
+.lcd-seg.is-on { background: var(--seg-on); box-shadow: 0 0 .55cqw var(--seg-glow); }
+
+/* bevelled bars, the way a real LCD cuts its segment corners */
+.lcd-seg.h { left: 8%; width: 84%; height: 13%;
+             clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%); }
+.lcd-seg.v { width: 22%; height: 38%;
+             clip-path: polygon(0 18%, 50% 0, 100% 18%, 100% 82%, 50% 100%, 0 82%); }
+.s-a { top: 0; }
+.s-g { top: 43.5%; }
+.s-d { top: 87%; }
+.s-f { left: 0;  top: 6%; }
+.s-b { right: 0; top: 6%; }
+.s-e { left: 0;  top: 56%; }
+.s-c { right: 0; top: 56%; }
+
+/* colons stay lit, and take the same on-colour as the digits */
+.lcd-colon { position: relative; }
+.lcd-colon::before,
+.lcd-colon::after {
+  content: ""; position: absolute;
+  left: 50%; transform: translateX(-50%);
+  width: 34%; aspect-ratio: 1;
+  border-radius: 20%;
+  background: var(--seg-on);
+  box-shadow: 0 0 .4cqw var(--seg-glow);
+}
+.lcd-colon::before { top: 24%; }
+.lcd-colon::after  { top: 62%; }
+
+/* ==========================================================================
+   DOWNLOAD-CONFIRM MODAL
+   --------------------------------------------------------------------------
+   download_menu_only.png is 1717x916 and already carries the header, the CSV
+   mark, the question and both button plates. The three hotspots are measured
+   off it: HECK YEAH x[165,850] y[564,751], lol NO x[889,1556] y[564,751], and
+   the close octagon around (1545,170) - widened here to a comfortable thumb
+   target, since the painted glyph alone is only 80px across.
+   ========================================================================== */
+.dl-overlay {
+  position: fixed; inset: 0;
+  z-index: 40;
+  background: rgba(3,3,4,.84);
+  display: grid; place-items: center;
+  padding: 4vmin;
+}
+.dl-overlay[hidden] { display: none; }
+
+.dl-card {
+  position: relative;
+  container-type: size;
+  width: min(94vw, 860px, calc((100vh - 8vmin) * 1717 / 916));
+  aspect-ratio: 1717 / 916;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  background-image: url("../assets/img/download_menu_only.png");
+  background-image: image-set(url("../assets/img/download_menu_only.webp") type("image/webp"),
+                              url("../assets/img/download_menu_only.png")  type("image/png"));
+  animation: dlPop .16s ease-out;
+}
+@keyframes dlPop {
+  from { opacity: 0; transform: scale(.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .dl-card { animation: none; } }
+
+.dl-hit {
+  position: absolute;
+  -webkit-appearance: none; appearance: none;
+  border: 0; padding: 0; margin: 0;
+  background-color: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 1.4cqw;
+  transition: background-color .1s ease, box-shadow .1s ease, transform .08s ease;
+}
+.dl-hit::-moz-focus-inner { border: 0; }
+.dl-hit:active { transform: translateY(.35cqw); }
+
+.dl-yes   { left:  9.61%; top: 61.57%; width: 39.95%; height: 20.52%; }
+.dl-no    { left: 51.78%; top: 61.57%; width: 38.91%; height: 20.52%; }
+.dl-close { left: 85.91%; top: 10.92%; width:  8.15%; height: 15.28%; border-radius: 50%; }
+
+.dl-yes:hover,   .dl-yes:focus-visible   { background-color: rgba(255,255,255,.17);
+                                           box-shadow: 0 0 2.6cqw rgba(0,232,60,.75); outline: none; }
+.dl-no:hover,    .dl-no:focus-visible    { background-color: rgba(255,255,255,.15);
+                                           box-shadow: 0 0 2.6cqw rgba(255,31,31,.75); outline: none; }
+.dl-close:hover, .dl-close:focus-visible { background-color: rgba(255,255,255,.2);
+                                           box-shadow: 0 0 2.2cqw rgba(245,197,24,.9); outline: none; }
+
 /* ---- small viewports ----------------------------------------------------- */
 @media (max-width: 720px) {
   .sg-3 { display: none; }
+}
+
+/* A phone held upright letterboxes the 3:2 instrument down to about a third of
+   the screen height, which puts each D-pad cell under 20px - too small to play
+   with a thumb. The controls still work; this only tells the player the
+   instrument wants to be held the way a real data collector is. Delete this
+   block and the .rotate-hint element in index.html if the hint is not wanted. */
+.rotate-hint {
+  position: fixed; left: 0; right: 0; top: 7vh;
+  margin: 0; text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 4.6vw; letter-spacing: 1vw;
+  color: var(--yellow);
+  text-shadow: 0 0 2vw rgba(0,0,0,.95);
+  pointer-events: none;
+  z-index: 8;
+  display: none;
+}
+@media (orientation: portrait) and (max-width: 900px) {
+  #screen-player.is-active .rotate-hint { display: block; animation: sgPulse 1.8s infinite; }
 }

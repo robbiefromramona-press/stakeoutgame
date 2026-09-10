@@ -56,6 +56,10 @@
 <!-- SCREEN 2 — PLAYER UI                                                   -->
 <!-- ====================================================================== -->
 <section id="screen-player" class="screen">
+  <!-- portrait nudge, sits in the letterbox above the instrument; see
+       .rotate-hint in styles.css -->
+  <p class="rotate-hint">&#8635; ROTATE TO PLAY</p>
+
   <div class="stage stage--player" id="playerStage">
 
     <!-- header strip: LEVEL X | POINT Y OF Z -->
@@ -88,6 +92,38 @@
       <span class="ro-u">ft</span>
     </div>
 
+    <!-- ------------------------------------------------------------------ -->
+    <!-- TOUCH CONTROLS                                                       -->
+    <!-- Real hotspots sitting exactly over the D-pad arrows and the MEASURE  -->
+    <!-- discs painted into the frame art. Both pads drive the SAME four      -->
+    <!-- directions (whichever thumb is free), and both MEASURE discs fire    -->
+    <!-- the same shot the desktop click fires. Pointer events, so a mouse    -->
+    <!-- on desktop uses this identical path -- no touch-only branch.         -->
+    <!-- data-nomeasure marks the whole cluster as "do not let the global     -->
+    <!-- tap-to-measure handler see taps that started in here".               -->
+    <!-- ------------------------------------------------------------------ -->
+    <div class="tc" id="touchControls" data-nomeasure>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-2 row-1" data-dir="up"    aria-label="Walk up (left pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-1 row-2" data-dir="left"  aria-label="Walk left (left pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-3 row-2" data-dir="right" aria-label="Walk right (left pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-2 row-3" data-dir="down"  aria-label="Walk down (left pad)"></button>
+
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-2 row-1" data-dir="up"    aria-label="Walk up (right pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-1 row-2" data-dir="left"  aria-label="Walk left (right pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-3 row-2" data-dir="right" aria-label="Walk right (right pad)"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-2 row-3" data-dir="down"  aria-label="Walk down (right pad)"></button>
+
+      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-l" aria-label="Measure"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-r" aria-label="Measure"></button>
+    </div>
+
+    <!-- TIMESTAMP: the level stopwatch, over the LCD housing in the art.
+         Opaque panel first (it covers the ghost "88:88:88" baked into the
+         artwork), then the live seven-segment digits app.js builds. -->
+    <div class="lcd" id="lcdClock" role="timer" aria-label="Level elapsed time">
+      <div class="lcd-row" id="lcdRow"></div>
+    </div>
+
     <p class="shot-msg" id="shotMsg"></p>
 
     <!-- start gate -->
@@ -95,8 +131,8 @@
       <div>
         <p class="sg-1">PRESS SPACEBAR</p>
         <p class="sg-2">OR CLICK TO START</p>
-        <p class="sg-3">W A S D to walk &nbsp;&bull;&nbsp; MOUSE over the vial levels the bubble (inverted)<br />
-           LEFT-CLICK anywhere to measure &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
+        <p class="sg-3">W A S D <em>or either D-PAD</em> to walk &nbsp;&bull;&nbsp; MOUSE over the vial levels the bubble (inverted)<br />
+           LEFT-CLICK the panels <em>or either MEASURE button</em> to measure &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
       </div>
     </div>
   </div>
@@ -134,6 +170,22 @@
     <p class="report-note" id="reportNote"></p>
   </div>
 </section>
+
+<!-- ====================================================================== -->
+<!-- DOWNLOAD-CONFIRM MODAL                                                 -->
+<!-- Everything you read here -- the header, the CSV mark, the question and -->
+<!-- both button plates -- is painted into download_menu_only.png. The      -->
+<!-- three buttons below are transparent hotspots laid over the art where   -->
+<!-- it draws them, so the modal is the artwork and the controls are real.  -->
+<!-- ====================================================================== -->
+<div class="dl-overlay" id="dlOverlay" hidden>
+  <div class="dl-card" id="dlCard" role="dialog" aria-modal="true"
+       aria-label="Do you wish to download the scorecard?">
+    <button type="button" class="dl-hit dl-yes"   id="dlYes"   aria-label="Heck yeah, download the scorecard"></button>
+    <button type="button" class="dl-hit dl-no"    id="dlNo"    aria-label="lol no, skip the download"></button>
+    <button type="button" class="dl-hit dl-close" id="dlClose" aria-label="Close without downloading"></button>
+  </div>
+</div>
 
 <script src="js/game-engine.js"></script>
 <script src="js/app.js"></script>

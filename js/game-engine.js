@@ -1,11 +1,31 @@
 /* ==========================================================================
-   STAKE-OUT V8 — game engine
+   STAKE-OUT V10 — game engine
+   --------------------------------------------------------------------------
+   V10 gives the bubble a "personality": instead of one flat spring/damper
+   pulling it toward the mouse-driven target in every direction, it now
+   resists centering and snaps outward faster when you drift off-level,
+   the way a real bullseye vial behaves. The whole effect is scaled by one
+   constant, BUBBLE_PERSONALITY (search for it below) -- turn it up for a
+   meaner bubble, down for a gentler one, or to 0 to get the exact old V9
+   feel back with no personality at all. It also scales itself up on harder
+   levels via the existing bubbleHump number, so Level 4 is naturally more
+   twitchy than Level 1 without a second tuning table. Nothing else about
+   position gauge, movement, drift, noise, the bipod lock cycle, tolerances,
+   or the pass/fail test changed.
+   --------------------------------------------------------------------------
+   V9 added three things and changed no rule: setDirection()/releaseDirections()
+   so the on-screen D-pads can write into the same `keys` map WASD writes into,
+   startIfWaiting() so a pad press can clear the start gate, and an onPlayStart
+   callback so the shell can start the level stopwatch at the moment play
+   actually begins. The only other edit was where drawBubbleGauge() puts its
+   caption - see the note there. (Title line above was never updated when V9
+   shipped -- fixed now.)
    --------------------------------------------------------------------------
    Ported from reference/stake-out-prototype-v7.html. The LEVELS table, every
    tuning constant, the bipod lock/unlock cycle, the pole-mode drift cap and
-   the pass/fail test are carried over unchanged. The only reshaping is
+   the pass/fail test are carried over unchanged. The only reshaping was
    plumbing: v7 kept its state in bare module-scope variables and drew both
-   gauges into one 900x380 canvas; V8 keeps state on a game object and draws
+   gauges into one 900x380 canvas; V8 put state on a game object and drew
    into the two separate panel canvases the shell positions over the artwork.
    Gauge geometry is expressed as ratios of v7's own numbers so the gauges
    scale up to the concept-art panels without changing their proportions.
@@ -28,7 +48,25 @@ const StakeOut = (function () {
   const DRIFT_CAP_FT = 0.2;    // pole-mode drift can never wander further than this per idle session
   const BUBBLE_SPRING_K = 6, BUBBLE_DAMPING = 0.6, ARROW_TARGET_SPEED = 1.4, BUBBLE_MAX_VEL = 6.0;
 
-  /* ---- gauge geometry ---------------------------------------------------
+  /* ---- V10: bubble "personality" ----------------------------------------
+     Everything below shapes how the spring/damper reacts depending on (a)
+     whether the mouse-driven target is moving away from level or back
+     toward it, and (b) how far off-level that target currently is. None of
+     it touches BUBBLE_SPRING_K / BUBBLE_DAMPING above -- those still set
+     the baseline; this only multiplies on top of them. */
+  const BUBBLE_PERSONALITY = 1.0;       // <<< THE ONE NUMBER TO TURN DURING TESTING.
+                                         //   0     = old V9 feel, zero personality (safe fallback / A-B check)
+                                         //   1.0   = default tuning, start here
+                                         //   1.5-2 = noticeably meaner, harder to hold level
+                                         //   0.3-0.5 = gentler, more forgiving
+  const BUBBLE_ESCAPE_MULT      = 2.2;  // stiffness multiplier while the target is moving AWAY from center
+  const BUBBLE_RETURN_MULT      = 1.0;  // stiffness multiplier while the target is moving TOWARD center
+  const BUBBLE_ESCAPE_DAMP_MULT = 0.75; // less resistance while escaping = feels punchier
+  const BUBBLE_RETURN_DAMP_MULT = 1.35; // more resistance while returning = feels controlled
+  const BUBBLE_SENSITIVITY_GAIN = 1.8;  // extra kick the farther off-level the target sits
+  const BUBBLE_SENSITIVITY_POW  = 1.5;  // curve shape -- higher = more dramatic drop-off near dead-center
+
+  /* ---- gauge geometry -----------------------------------------------------
      v7 drew the position dial at r=85 with triangle apex/base/half-width of
      35/10/18 px. Those are kept as ratios of r so the dial can be drawn at
      the larger radius the concept-art panel wants without changing shape. */
@@ -179,6 +217,32 @@ const StakeOut = (function () {
       waitingToStart = false;
       cfg.onStartGate && cfg.onStartGate(false);
       lastT = null;
+      // play has actually begun -- this is where the level stopwatch starts,
+      // not when the screen appeared, so time spent reading the gate is free
+      cfg.onPlayStart && cfg.onPlayStart();
+    }
+
+    /* ---- directional input from the on-screen D-pads -----------------------
+       These write into the very same `keys` map onKeyDown writes into, so
+       update() cannot tell a pad press from a WASD press: identical speed,
+       identical per-level move noise, identical bipod lock/unlock, identical
+       pole drift. Nothing here reimplements movement. */
+    const DIR_KEYS = { up: 'w', down: 's', left: 'a', right: 'd' };
+
+    function setDirection(dir, on) {
+      const k = DIR_KEYS[dir];
+      if (!k) return;
+      keys[k] = active ? !!on : false;
+    }
+
+    function releaseDirections() {
+      keys['w'] = false; keys['a'] = false; keys['s'] = false; keys['d'] = false;
+    }
+
+    // a pad press is a valid way through the start gate; unlike handleClick()
+    // it can never fall through into a measurement
+    function startIfWaiting() {
+      if (active && waitingToStart) openGate();
     }
 
     function clampMag(o, max) {
@@ -186,7 +250,7 @@ const StakeOut = (function () {
       if (mag > max) { o.x = (o.x / mag) * max; o.y = (o.y / mag) * max; }
     }
 
-    /* ---- simulation (verbatim v7) ---------------------------------------- */
+    /* ---- simulation (verbatim v7 movement/drift; bubble spring is V10) ---- */
     function update(dt) {
       const lvl = LEVELS[levelIndex];
       const anyKey = keys['w'] || keys['a'] || keys['s'] || keys['d'];
@@ -257,9 +321,25 @@ const StakeOut = (function () {
       clampMag(bubbleTarget, 1);
 
       if (bubbleActive) {
+        // V10 personality: is the mouse/arrow-driven target farther off-level
+        // than where the bubble currently sits? If so we're "escaping" and
+        // the bubble should snap out fast; otherwise we're "returning" and
+        // it should feel controlled. Both effects grow on harder levels via
+        // bubbleHump, and the whole thing is scaled globally by
+        // BUBBLE_PERSONALITY. At BUBBLE_PERSONALITY = 0 this entire block
+        // reduces exactly to the old V9 formula below.
+        const targetMag = Math.hypot(bubbleTarget.x, bubbleTarget.y);
+        const bubbleMag = Math.hypot(bubble.x, bubble.y);
+        const escaping  = targetMag > bubbleMag;
+        const levelScale = 1 + lvl.bubbleHump * BUBBLE_PERSONALITY;
+
+        const stiffnessMult = 1 + ((escaping ? BUBBLE_ESCAPE_MULT : BUBBLE_RETURN_MULT) - 1) * BUBBLE_PERSONALITY * levelScale;
+        const dampMult      = 1 + ((escaping ? BUBBLE_ESCAPE_DAMP_MULT : BUBBLE_RETURN_DAMP_MULT) - 1) * BUBBLE_PERSONALITY * levelScale;
+        const sensitivity   = Math.pow(targetMag, BUBBLE_SENSITIVITY_POW) * BUBBLE_SENSITIVITY_GAIN * BUBBLE_PERSONALITY * levelScale;
+
         // pendulum: pulled toward the inverted mouse-controlled target, low damping so it swings past and oscillates
-        const springK = BUBBLE_SPRING_K * (1 + lvl.bubbleHump * 0.5);
-        const damping = BUBBLE_DAMPING / (1 + lvl.bubbleHump);
+        const springK = BUBBLE_SPRING_K * (1 + lvl.bubbleHump * 0.5) * stiffnessMult * (1 + sensitivity);
+        const damping = (BUBBLE_DAMPING / (1 + lvl.bubbleHump)) * dampMult;
         let ax = (bubbleTarget.x - bubble.x) * springK - bubble.vx * damping;
         let ay = (bubbleTarget.y - bubble.y) * springK - bubble.vy * damping;
         ax += (Math.random() - 0.5) * lvl.bubbleHump * 1.5;
@@ -395,18 +475,23 @@ const StakeOut = (function () {
       bctx.beginPath(); bctx.arc(cx, cy, r, 0, Math.PI * 2); bctx.clip();
       bctx.fillStyle = sheen; bctx.fillRect(cx - r, cy - r, r * 2, r); bctx.restore();
 
-      // caption under the vial
+      /* Caption. V8 hung this below the vial at cy+r+46 and cy+r+68, which in
+         art pixels is y=691 and y=712. with_measure_and_clock.png puts the
+         TIMESTAMP housing there (it starts at art y=666, and this canvas has
+         already drawn the bezel out to y=662), so below is gone. The one band
+         still clear inside the panel is above the vial: art y[332,356], which
+         is layout y[30,55] here. So the two lines become one compact line at
+         layout y=50. Wording and placement only -- the offset reading and the
+         tolerance it is compared against are exactly as before. */
+      const CAP_Y = 50;
       bctx.textAlign = 'center';
       if (live) {
-        bctx.fillStyle = YELLOW; bctx.font = 'bold 21px "Courier New", monospace';
-        bctx.fillText('OFFSET ' + (Math.hypot(bubble.x, bubble.y) * 100).toFixed(1) + '%', cx, cy + r + 46);
-        bctx.fillStyle = '#777777'; bctx.font = 'bold 14px "Courier New", monospace';
-        bctx.fillText('TOLERANCE ' + lvl.bubbleTolerancePct + '%', cx, cy + r + 68);
+        bctx.fillStyle = YELLOW; bctx.font = 'bold 17px "Courier New", monospace';
+        bctx.fillText('OFFSET ' + (Math.hypot(bubble.x, bubble.y) * 100).toFixed(1) +
+                      '%   TOL ' + lvl.bubbleTolerancePct + '%', cx, CAP_Y);
       } else {
-        bctx.fillStyle = '#8a8a8a'; bctx.font = 'bold 20px "Courier New", monospace';
-        bctx.fillText('LOCKED', cx, cy + r + 46);
-        bctx.fillStyle = '#5f5f5f'; bctx.font = 'bold 13px "Courier New", monospace';
-        bctx.fillText('MOVE, THEN RELEASE TO UNLOCK', cx, cy + r + 68);
+        bctx.fillStyle = '#8a8a8a'; bctx.font = 'bold 15px "Courier New", monospace';
+        bctx.fillText('LOCKED \u2014 MOVE, THEN RELEASE', cx, CAP_Y);
       }
       bctx.restore();
     }
@@ -497,6 +582,9 @@ const StakeOut = (function () {
       stop: stop,
       destroy: destroy,
       handleClick: handleClick,
+      setDirection: setDirection,
+      releaseDirections: releaseDirections,
+      startIfWaiting: startIfWaiting,
       get isActive() { return active; }
     };
   }

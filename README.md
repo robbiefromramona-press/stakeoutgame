@@ -32,7 +32,7 @@ Then open <http://localhost:8080>.
 | Screen | Element | What's real |
 |---|---|---|
 | Main menu | `#screen-menu` | Four level buttons, a BIPOD/POLE mode selector, and a START button, positioned over `assets/img/main_menu.png` |
-| Player UI | `#screen-player` | Two live canvas gauges and the numeric readouts, positioned inside the panel cutouts of `assets/img/main_player_UI.png` |
+| Player UI | `#screen-player` | Two live canvas gauges, the numeric readouts, the level stopwatch and ten touch hotspots (two D-pads + two MEASURE discs), positioned inside the panel cutouts of `assets/img/with_measure_and_clock.png` |
 | Field report | `#screen-report` | Real per-point timestamps, distance errors, pass/fail and totals, drawn over `assets/img/field_report.png` |
 
 Routing is a three-line `showScreen(name)` in `js/app.js` — no router library.
@@ -123,13 +123,14 @@ background-image: image-set(url("../assets/img/main_menu.webp") type("image/webp
 A browser too old to parse `image-set()` ignores the second declaration and
 keeps the PNG. Modern browsers fetch only the WebP — nothing double-downloads.
 
-That takes the art from 4.9 MB to 546 KB (89% smaller):
+That takes the art from 5.5 MB to 655 KB (88% smaller):
 
 | File | PNG | WebP |
 |---|---|---|
-| `main_menu` | 1689 KB | 167 KB |
-| `main_player_UI` | 1939 KB | 206 KB |
+| `main_menu` | 1688 KB | 167 KB |
+| `with_measure_and_clock` | 1676 KB | 170 KB |
 | `field_report` | 1275 KB | 172 KB |
+| `download_menu_only` | 1031 KB | 146 KB |
 
 WebP is quality 92, method 6, at the original resolution — deliberately not
 downscaled, because the stage scales to `min(100vw, 100vh × aspect)` and is
