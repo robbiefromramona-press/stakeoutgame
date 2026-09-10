@@ -55,11 +55,31 @@ body { user-select: none; -webkit-user-select: none; }
   overflow: hidden;
 }
 
-.stage--menu   { --aw: 1535; --ah: 1230; background-image: url("../assets/img/main_menu.png"); }
-.stage--player { --aw: 1536; --ah: 1024; background-image: url("../assets/img/main_player_UI.png");
-                 background-size: 100% 100%; cursor: crosshair; }
-.stage--report { --aw: 1536; --ah: 1190; background-image: url("../assets/img/field_report.png");
-                 background-color: #000; }
+/* Each stage names its art twice: a plain url() that every browser understands,
+   then an image-set() that browsers supporting it use to pick the WebP instead.
+   The WebP copies are ~89% smaller (546 KB vs 4.9 MB across the three), and
+   anything too old to parse image-set() simply keeps the PNG above it. */
+.stage--menu {
+  --aw: 1535; --ah: 1230;
+  background-image: url("../assets/img/main_menu.png");
+  background-image: image-set(url("../assets/img/main_menu.webp") type("image/webp"),
+                              url("../assets/img/main_menu.png")  type("image/png"));
+}
+.stage--player {
+  --aw: 1536; --ah: 1024;
+  background-image: url("../assets/img/main_player_UI.png");
+  background-image: image-set(url("../assets/img/main_player_UI.webp") type("image/webp"),
+                              url("../assets/img/main_player_UI.png")  type("image/png"));
+  background-size: 100% 100%;
+  cursor: crosshair;
+}
+.stage--report {
+  --aw: 1536; --ah: 1190;
+  background-image: url("../assets/img/field_report.png");
+  background-image: image-set(url("../assets/img/field_report.webp") type("image/webp"),
+                              url("../assets/img/field_report.png")  type("image/png"));
+  background-color: #000;
+}
 
 /* ==========================================================================
    SCREEN 1 — MAIN MENU

@@ -105,7 +105,41 @@ stakeoutgame/
 ├── css/styles.css        all layout + the overlay coordinates
 ├── js/game-engine.js     ported v6/v7 physics, tolerances, scoring
 ├── js/app.js             routing, menu state, report rendering, exports
-└── assets/img/           the three concept-art backgrounds
+└── assets/img/           the three concept-art backgrounds (.webp + .png)
+```
+
+### About the background art
+
+Each background ships twice: a WebP that browsers actually download, and the
+original PNG as a fallback. `css/styles.css` names both, PNG first, then an
+`image-set()` that supporting browsers use to pick the WebP:
+
+```css
+background-image: url("../assets/img/main_menu.png");
+background-image: image-set(url("../assets/img/main_menu.webp") type("image/webp"),
+                            url("../assets/img/main_menu.png")  type("image/png"));
+```
+
+A browser too old to parse `image-set()` ignores the second declaration and
+keeps the PNG. Modern browsers fetch only the WebP — nothing double-downloads.
+
+That takes the art from 4.9 MB to 546 KB (89% smaller):
+
+| File | PNG | WebP |
+|---|---|---|
+| `main_menu` | 1689 KB | 167 KB |
+| `main_player_UI` | 1939 KB | 206 KB |
+| `field_report` | 1275 KB | 172 KB |
+
+WebP is quality 92, method 6, at the original resolution — deliberately not
+downscaled, because the stage scales to `min(100vw, 100vh × aspect)` and is
+already rendered wider than the 1536 px source on a 1440p display.
+
+To re-encode after changing the art (needs Pillow, dev-time only, not a
+project dependency):
+
+```bash
+python -c "from PIL import Image; import glob, os; [Image.open(p).save(os.path.splitext(p)[0]+'.webp','WEBP',quality=92,method=6) for p in glob.glob('assets/img/*.png')]"
 ```
 
 ### About `js/game-engine.js`
