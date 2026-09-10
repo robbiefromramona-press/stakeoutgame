@@ -4,23 +4,35 @@ Isolated rigs for testing **one Stake-Out screen mechanic at a time**, away
 from the full game. Nothing in here ships. Nothing in here is loaded by the
 game at `/index.html`.
 
-The rule for this folder: **reuse, don't re-implement.** Every container loads
-`../js/game-engine.js` — the exact file the real game loads — so a fix proven
-here is a fix to the real engine, not to a copy that has to be re-derived
-later.
+The rule for this folder: **reuse, don't re-implement.** The physics is the
+main build's engine, not a rewrite — so a fix proven here is a fix to the real
+engine, not to a copy that has to be re-derived later.
+
+One deployment compromise sits on top of that rule. See
+[Known port-back cleanup](#known-port-back-cleanup) before you edit anything
+in `js/`.
 
 ---
 
 ## Running it
 
-Same as the main game: it needs to be served, not opened as `file://`,
-because it reaches up one level for the engine.
+Same as the main game: it needs to be served, not opened as a `file://` URL.
 
 ```bash
 python -m http.server 8080
 ```
 
 Then open <http://localhost:8080/sandbox-test/>.
+
+To reproduce the **deployed** layout exactly — Netlify publishes this folder
+as the site root — serve from inside it instead:
+
+```bash
+cd sandbox-test && python -m http.server 8080
+```
+
+Then open <http://localhost:8080/>. Anything that only works from the repo
+root is broken on the deployed site.
 
 ---
 
@@ -107,6 +119,41 @@ its behaviour is unchanged:
 The `LEVELS` table, `BASE_SPEED_FT`, `REVEAL_DELAY`, `EPS`, `DRIFT_CAP_FT`,
 every bubble spring constant, the bipod lock cycle, the pole drift cap and the
 position tolerance test are all **untouched**.
+
+---
+
+## Known port-back cleanup
+
+**`sandbox-test/js/game-engine.js` is a duplicate of `js/game-engine.js`.**
+
+Netlify publishes this folder **as the site root**, so on the deployed site
+nothing above `sandbox-test/` exists. The original `<script src="../js/…">`
+resolved to `/js/game-engine.js`, returned 404, and left `StakeOut` undefined
+— which threw `ReferenceError: StakeOut is not defined` on every START press
+and looked like a mobile freeze rather than a clean failure. The folder now
+carries its own copy so it is self-contained for deploy.
+
+This is a deliberate, temporary trade against the reuse rule above.
+
+**The risk:** edit `js/game-engine.js` and forget this copy, and the sandbox
+silently tests stale physics while appearing to work. Guard against it:
+
+```bash
+sh sandbox-test/sync-engine.sh                    # re-copy after any engine edit
+diff js/game-engine.js sandbox-test/js/game-engine.js   # must be empty
+```
+
+**Before merging back into the main game — do not skip:**
+
+1. `diff` the two files and reconcile any drift. The main build's copy wins
+   unless the sandbox's changes are the fix being ported.
+2. Delete `sandbox-test/js/game-engine.js` and `sandbox-test/sync-engine.sh`.
+3. The main game loads `js/game-engine.js` from the repo root and never needed
+   the duplicate; nothing in the shipping build should reference it.
+
+The cleaner long-term fix is to set Netlify's publish directory to the repo
+root and serve the sandbox at `/sandbox-test/`, which removes the need for a
+copy entirely. Left alone for now so the sandbox keeps its own site.
 
 ---
 

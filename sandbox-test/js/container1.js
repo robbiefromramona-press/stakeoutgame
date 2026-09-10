@@ -11,12 +11,17 @@
 
    No bubble vial, no clock, no right-screen anything.
 
-   All of the physics comes from ../js/game-engine.js -- the same file the
-   full game loads. This file is a shell: it routes two screens, paints the
-   cards, and translates pointer events into the engine's existing
-   setDirection() / handleClick() calls. Nothing about movement, drift,
-   per-level noise or the pass/fail test is reimplemented here, so anything
-   that gets fixed in this container is a fix to the real engine.
+   All of the physics comes from js/game-engine.js, a VENDORED copy of the
+   main build's engine -- byte-identical, not a fork. It has to live in this
+   folder because Netlify publishes sandbox-test/ as the site root, so
+   "../js/..." 404s on the deployed site. Re-copy it with sync-engine.sh
+   after any engine edit; see README, "Known port-back cleanup".
+
+   This file is a shell: it routes two screens, paints the cards, and
+   translates pointer events into the engine's existing setDirection() /
+   handleClick() calls. Nothing about movement, drift, per-level noise or the
+   pass/fail test is reimplemented here, so anything that gets fixed in this
+   container is a fix to the real engine.
 
    >>> GLOBAL FIX APPLIED HERE <<<
    The full game's app.js carries a stage-wide click listener that fires a

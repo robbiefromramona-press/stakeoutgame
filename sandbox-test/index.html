@@ -119,8 +119,12 @@
   </div>
 </section>
 
-<!-- the shared engine, imported straight from the main game build -->
-<script src="../js/game-engine.js"></script>
+<!-- VENDORED copy of the main build's js/game-engine.js.
+     Netlify publishes this folder AS THE SITE ROOT, so nothing above
+     sandbox-test/ exists on the deployed site and "../js/..." 404s. Keep
+     this in sync with ../js/game-engine.js -- see README, "Known port-back
+     cleanup". -->
+<script src="js/game-engine.js"></script>
 <script src="js/container1.js"></script>
 </body>
 </html>
