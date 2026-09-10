@@ -87,16 +87,29 @@ const StakeOut = (function () {
   /* ======================================================================== */
   function create(cfg) {
     const posCanvas = cfg.posCanvas;
-    const bubbleCanvas = cfg.bubbleCanvas;
+    // V10.1: the bubble half is now OPTIONAL. Pass no bubbleCanvas and the
+    // instance runs as a position-only rig -- nothing about the position
+    // gauge, movement, drift, noise or tolerances changes. The full game
+    // always passes one, so this is inert there.
+    const bubbleCanvas = cfg.bubbleCanvas || null;
     const pctx = posCanvas.getContext('2d');
-    const bctx = bubbleCanvas.getContext('2d');
+    const bctx = bubbleCanvas ? bubbleCanvas.getContext('2d') : null;
+
+    /* positionOnly: score and reveal on POSITION ALONE, ignoring the bubble.
+       Implied whenever no bubbleCanvas was supplied, or forced with
+       cfg.positionOnly. Without it a rig with no visible vial would still be
+       graded on a bubble the player cannot see or reach -- every shot would
+       fail on the tight levels. Default is false for anyone passing a bubble
+       canvas, so the shipping game is untouched. */
+    const positionOnly = cfg.positionOnly === true || !bubbleCanvas;
 
     // Each canvas is backed at 2x its layout size; draw in layout units.
     const PIX = 2;
     pctx.setTransform(PIX, 0, 0, PIX, 0, 0);
-    bctx.setTransform(PIX, 0, 0, PIX, 0, 0);
+    if (bctx) bctx.setTransform(PIX, 0, 0, PIX, 0, 0);
     const POS_W = posCanvas.width / PIX, POS_H = posCanvas.height / PIX;
-    const BUB_W = bubbleCanvas.width / PIX, BUB_H = bubbleCanvas.height / PIX;
+    const BUB_W = bubbleCanvas ? bubbleCanvas.width / PIX : 0;
+    const BUB_H = bubbleCanvas ? bubbleCanvas.height / PIX : 0;
 
     /* ---- state (v7's module-scope variables, now on one object) ---------- */
     let levelIndex = 0, pointNum = 1, report = [], running = false, processingClick = false;
@@ -211,7 +224,7 @@ const StakeOut = (function () {
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
-    bubbleCanvas.addEventListener('mousemove', onBubbleMouseMove);
+    if (bubbleCanvas) bubbleCanvas.addEventListener('mousemove', onBubbleMouseMove);
 
     function openGate() {
       waitingToStart = false;
@@ -272,7 +285,9 @@ const StakeOut = (function () {
           if (!bipodBubbleUnlocked && hasMovedThisPoint) { bipodBubbleUnlocked = true; }
           if (bipodBubbleUnlocked) {
             const bOffsetPct = Math.hypot(bubble.x, bubble.y) * 100;
-            if (bOffsetPct <= lvl.bubbleTolerancePct) {
+            // positionOnly: releasing the pad is enough to reveal, because
+            // there is no vial to level.
+            if (positionOnly || bOffsetPct <= lvl.bubbleTolerancePct) {
               bipodBubbleUnlocked = false; // re-lock immediately on success
               readoutsVisible = true;
               doReveal();
@@ -500,19 +515,24 @@ const StakeOut = (function () {
       const s = getTriangleStates();
       const fmt = function (on, val) { return (readoutsVisible && on) ? Math.abs(val).toFixed(3) : '---'; };
       cfg.onReadouts && cfg.onReadouts({
+        // V10.1: whether the engine currently considers the reading revealed.
+        // The shipping shell ignores this field; a shell that wants to style
+        // "hidden while walking" differently from "dead on line" needs it,
+        // because both come through as '---' below.
+        visible: readoutsVisible,
         left:  fmt(s.left,  s.tx),
         right: fmt(s.right, s.tx),
         to:    fmt(s.up,    s.ty),
         away:  fmt(s.down,  s.ty),
-        bubble: bubbleActive ? (Math.hypot(bubble.x, bubble.y) * 100).toFixed(1) : 'LOCKED'
+        bubble: positionOnly ? null
+              : bubbleActive ? (Math.hypot(bubble.x, bubble.y) * 100).toFixed(1) : 'LOCKED'
       });
     }
 
     function draw() {
       pctx.clearRect(0, 0, POS_W, POS_H);
-      bctx.clearRect(0, 0, BUB_W, BUB_H);
       drawPositionGauge();
-      drawBubbleGauge();
+      if (bctx) { bctx.clearRect(0, 0, BUB_W, BUB_H); drawBubbleGauge(); }
       pushReadouts();
     }
 
@@ -532,7 +552,8 @@ const StakeOut = (function () {
       const lvl = LEVELS[levelIndex];
       const hOffsetFt = Math.hypot(pos.x, pos.y);
       const bOffsetPct = Math.hypot(bubble.x, bubble.y) * 100;
-      const pass = hOffsetFt <= lvl.posToleranceFt && bOffsetPct <= lvl.bubbleTolerancePct;
+      const pass = hOffsetFt <= lvl.posToleranceFt &&
+                   (positionOnly || bOffsetPct <= lvl.bubbleTolerancePct);
 
       const now = new Date();
       report.push({
@@ -574,7 +595,7 @@ const StakeOut = (function () {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
-      bubbleCanvas.removeEventListener('mousemove', onBubbleMouseMove);
+      if (bubbleCanvas) bubbleCanvas.removeEventListener('mousemove', onBubbleMouseMove);
     }
 
     return {

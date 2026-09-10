@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<title>STAKE-OUT — Sandbox Test Container</title>
+<meta name="robots" content="noindex" />
+<meta name="description" content="Isolated sandbox rig for testing Stake-Out screen mechanics one at a time. Not the game." />
+<!-- inline so the rig pulls in no external asset of any kind -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0c0c'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23f5c518' stroke-width='3'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/sandbox.css" />
+</head>
+<body>
+
+<!-- ====================================================================== -->
+<!-- START — the entry point. Nothing else is live until START is pressed.  -->
+<!-- ====================================================================== -->
+<section id="screen-start" class="screen is-active">
+  <div class="start-wrap">
+    <p class="sb-kicker">STAKE-OUT &nbsp;&bull;&nbsp; SANDBOX RIG</p>
+    <h1 class="sb-title">CONTAINER 1</h1>
+    <p class="sb-sub">LEFT SCREEN — POLE / WALK MOVEMENT</p>
+
+    <button type="button" id="startBtn" class="start-btn">START</button>
+
+    <!-- test-rig options. Not part of the shipping game shell. -->
+    <div class="opt-block">
+      <p class="opt-label">LEVEL &amp; TOLERANCE</p>
+      <div class="opt-row" id="levelPicker">
+        <button type="button" class="opt-btn is-on" data-level="0">1</button>
+        <button type="button" class="opt-btn" data-level="1">2</button>
+        <button type="button" class="opt-btn" data-level="2">3</button>
+        <button type="button" class="opt-btn" data-level="3">4</button>
+      </div>
+
+      <p class="opt-label">MOVEMENT MODE</p>
+      <div class="opt-row" id="modePicker">
+        <button type="button" class="opt-btn wide is-on" data-mode="bipod">BIPOD</button>
+        <button type="button" class="opt-btn wide" data-mode="pole">POLE</button>
+      </div>
+
+      <p class="opt-hint" id="optHint">&nbsp;</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ====================================================================== -->
+<!-- CONTAINER 1 — position gauge, readout cards, 4-way pad, MEASURE.       -->
+<!-- No bubble vial, no clock, no right-screen anything.                    -->
+<!-- ====================================================================== -->
+<section id="screen-c1" class="screen">
+  <div class="rig" id="rig">
+
+    <header class="hud">
+      <button type="button" id="backBtn" class="hud-back" aria-label="Back to start">&#10094;</button>
+      <span class="hud-seg"><i>LVL</i> <b id="hudLevel">1</b></span>
+      <span class="hud-seg"><i>PT</i> <b id="hudPoint">1</b> <i>/</i> <b id="hudTotal">3</b></span>
+      <span class="hud-seg"><i>MODE</i> <b id="hudMode">BIPOD</b></span>
+      <span class="hud-seg"><i>TOL</i> <b id="hudTol">0.300</b></span>
+    </header>
+
+    <!-- the round "map": dial face, yellow directional arrows, and the white
+         point pip that hides itself while a direction is held -->
+    <div class="gauge-wrap">
+      <canvas id="posCanvas" class="gauge" width="856" height="856"
+              aria-label="Point position gauge"></canvas>
+    </div>
+
+    <!-- live readout cards -->
+    <div class="cards">
+      <div class="card" id="cardLR">
+        <div class="card-heads">
+          <span id="hLeft">LEFT</span><span id="hRight">RIGHT</span>
+        </div>
+        <div class="card-val"><b id="vLR">---</b><i>ft</i></div>
+      </div>
+      <div class="card" id="cardTA">
+        <div class="card-heads">
+          <span id="hTo">TO</span><span id="hAway">AWAY</span>
+        </div>
+        <div class="card-val"><b id="vTA">---</b><i>ft</i></div>
+      </div>
+    </div>
+
+    <!-- controls: discrete 4-way pad + the ONLY thing that measures -->
+    <div class="controls">
+      <div class="dpad" id="dpad">
+        <button type="button" tabindex="-1" class="dbtn d-up"    data-dir="up"    aria-label="Walk up">&#9650;</button>
+        <button type="button" tabindex="-1" class="dbtn d-left"  data-dir="left"  aria-label="Walk left">&#9664;</button>
+        <button type="button" tabindex="-1" class="dbtn d-right" data-dir="right" aria-label="Walk right">&#9654;</button>
+        <button type="button" tabindex="-1" class="dbtn d-down"  data-dir="down"  aria-label="Walk down">&#9660;</button>
+        <span class="dpad-hub" aria-hidden="true"></span>
+      </div>
+
+      <button type="button" id="measureBtn" class="measure" aria-label="Measure point">
+        <span>MEASURE</span>
+      </button>
+    </div>
+
+    <p class="shot-msg" id="shotMsg"></p>
+  </div>
+
+  <!-- end-of-round card -->
+  <div class="done-overlay" id="doneOverlay" hidden>
+    <div class="done-card">
+      <h2 id="doneTitle">ROUND COMPLETE</h2>
+      <div class="done-stats">
+        <div><b id="dTotal">0</b><i>POINTS</i></div>
+        <div><b id="dPass" class="ok">0</b><i>PASSED</i></div>
+        <div><b id="dFail" class="bad">0</b><i>FAILED</i></div>
+      </div>
+      <ul class="done-list" id="doneList"></ul>
+      <div class="done-actions">
+        <button type="button" id="againBtn" class="opt-btn wide is-on">RUN AGAIN</button>
+        <button type="button" id="doneBackBtn" class="opt-btn wide">START SCREEN</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- the shared engine, imported straight from the main game build -->
+<script src="../js/game-engine.js"></script>
+<script src="js/container1.js"></script>
+</body>
+</html>

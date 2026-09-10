@@ -1,0 +1,447 @@
+/* ==========================================================================
+   STAKE-OUT — SANDBOX RIG stylesheet
+   --------------------------------------------------------------------------
+   Deliberately shares nothing with css/styles.css. The main game positions
+   real controls over concept-art backgrounds at percentages measured off the
+   PNGs; a test container wants the opposite -- no art, no absolute overlay
+   coordinates, nothing to line up. Everything here is plain flexbox so a
+   mechanic can be judged on its own behaviour instead of on how well it sits
+   inside a painted panel.
+   ========================================================================== */
+
+:root {
+  --yellow:  #f5c518;
+  --ink:     #0b0c0c;
+  --panel:   #151616;
+  --panel-2: #1e1f1f;
+  --edge:    #3a3b3b;
+  --dim:     #7d7f7f;
+  --ok:      #00e83c;
+  --bad:     #ff1f1f;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--ink);
+  color: #fff;
+  font-family: "Courier New", Consolas, monospace;
+  overscroll-behavior: none;
+}
+
+body {
+  /* a held thumb must never scroll or rubber-band the page out from under
+     the pad -- this rig is a fixed viewport, not a document */
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.screen { display: none; height: 100%; }
+.screen.is-active { display: block; }
+
+/* ==========================================================================
+   START SCREEN
+   ========================================================================== */
+.start-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.sb-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: var(--dim);
+}
+
+.sb-title {
+  margin: 6px 0 0;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(30px, 9vw, 46px);
+  letter-spacing: 3px;
+  background: var(--yellow);
+  color: #000;
+  padding: 3px 22px;
+}
+
+.sb-sub {
+  margin: 9px 0 0;
+  font-size: clamp(10px, 3vw, 12px);
+  letter-spacing: 3px;
+  color: var(--yellow);
+}
+
+/* the only live target on load */
+.start-btn {
+  margin: 30px 0 4px;
+  width: min(62vw, 230px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 5px solid var(--yellow);
+  background: radial-gradient(circle at 50% 34%, #2a2a2a 0%, #101010 72%);
+  color: var(--yellow);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(30px, 9vw, 44px);
+  letter-spacing: 4px;
+  cursor: pointer;
+  box-shadow: 0 0 0 6px #000, 0 10px 30px rgba(0, 0, 0, .7);
+  transition: transform .08s ease, background .08s ease;
+}
+.start-btn:active {
+  transform: scale(.96);
+  background: radial-gradient(circle at 50% 34%, #4a4413 0%, #171303 72%);
+}
+
+.opt-block { margin-top: 24px; width: min(92vw, 400px); }
+
+.opt-label {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--dim);
+}
+
+.opt-row { display: flex; gap: 8px; justify-content: center; }
+
+.opt-btn {
+  flex: 1 1 0;
+  min-height: 46px;
+  border: 2px solid var(--edge);
+  background: var(--panel);
+  color: var(--dim);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 17px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+.opt-btn.wide { letter-spacing: 3px; }
+.opt-btn.is-on {
+  border-color: var(--yellow);
+  background: var(--yellow);
+  color: #000;
+}
+
+.opt-hint {
+  margin: 14px 0 0;
+  min-height: 2.6em;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: .5px;
+  color: var(--dim);
+}
+
+/* ==========================================================================
+   CONTAINER 1 RIG
+   ========================================================================== */
+.rig {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: max(8px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+}
+
+/* ---- HUD --------------------------------------------------------------- */
+.hud {
+  position: relative;          /* the back button anchors to this, not the page */
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 7px 46px;           /* clears the absolutely-placed back button */
+  border-bottom: 2px solid var(--edge);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.hud-seg i { color: var(--dim); font-style: normal; }
+.hud-seg b { color: var(--yellow); }
+
+.hud-back {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--edge);
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---- the round map ------------------------------------------------------ */
+.gauge-wrap {
+  flex: 1 1 auto;
+  /* both min-*: 0 matter -- a flex/grid item defaults to min-content, which
+     lets an 856px canvas force the track wider than the screen */
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.gauge {
+  /* The canvas is a replaced element with an intrinsic 856x856 box, so
+     capping BOTH axes lets the browser fit it to whichever side is tighter
+     while keeping it square. Sizing it with height:100%/aspect-ratio instead
+     feeds the track back into itself and the dial runs away in landscape. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  /* The engine draws the dial at r=122 inside 428 layout units and the arrow
+     tips only reach r~172, so ~20% of the canvas is transparent margin.
+     Scaling up reclaims it: the drawn artwork ends at 0.80 x 1.18 = 94% of
+     the box, so nothing is clipped and the dial reads much bigger on a
+     phone. transform doesn't feed back into layout, so this cannot resize
+     the track. */
+  transform: scale(1.18);
+}
+
+/* ---- readout cards ------------------------------------------------------ */
+.cards {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.card {
+  flex: 1 1 0;
+  background: var(--panel);
+  border: 2px solid var(--edge);
+  padding: 6px 8px 8px;
+}
+
+.card-heads {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #4a4b4b;
+}
+/* whichever direction you actually have to walk lights up */
+.card-heads span.is-on { color: var(--yellow); }
+
+.card-val {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+.card-val b {
+  font-size: clamp(20px, 6.5vw, 28px);
+  letter-spacing: 1px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.card-val i { font-style: normal; font-size: 12px; color: var(--yellow); }
+/* hidden reading = the dashes go grey, matching the pip vanishing on the dial */
+.card.is-hidden .card-val b { color: #4a4b4b; }
+
+/* ---- controls ----------------------------------------------------------- */
+.controls {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dpad {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  flex: 0 0 auto;
+}
+
+.dbtn {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--edge);
+  background: var(--panel-2);
+  color: var(--yellow);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+}
+.dbtn.is-down { background: var(--yellow); color: #000; border-color: var(--yellow); }
+
+.d-up    { left: 56px; top: 0; }
+.d-left  { left: 0;    top: 56px; }
+.d-right { left: 112px; top: 56px; }
+.d-down  { left: 56px; top: 112px; }
+
+.dpad-hub {
+  position: absolute;
+  left: 56px; top: 56px;
+  width: 56px; height: 56px;
+  background: var(--panel);
+  border: 2px solid #2a2b2b;
+}
+
+.measure {
+  flex: 0 0 auto;
+  width: 124px;
+  height: 124px;
+  padding: 0;
+  border-radius: 50%;
+  border: 5px solid var(--yellow);
+  background: radial-gradient(circle at 50% 34%, #2f2a08 0%, #120f02 72%);
+  color: var(--yellow);
+  /* Arial Narrow is absent on iOS and most Android builds, so the label is
+     really being set in whatever wider face the stack falls back to. Sized
+     for that worst case rather than for the narrow font. */
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 17px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 0 0 5px #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.measure.is-down { background: var(--yellow); color: #000; }
+
+/* ---- shot message ------------------------------------------------------- */
+.shot-msg {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 13px;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.shot-msg.is-on { opacity: 1; }
+.shot-msg.pass { color: var(--ok); }
+.shot-msg.fail { color: var(--bad); }
+
+/* ==========================================================================
+   END-OF-ROUND CARD
+   ========================================================================== */
+.done-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 20;
+}
+.done-overlay[hidden] { display: none; }
+
+.done-card {
+  width: min(94vw, 420px);
+  max-height: 92vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 4px solid var(--yellow);
+  padding: 16px;
+  text-align: center;
+}
+
+.done-card h2 {
+  margin: 0 0 12px;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 24px;
+  letter-spacing: 3px;
+  color: var(--yellow);
+}
+
+.done-stats { display: flex; border: 2px solid var(--edge); }
+.done-stats div {
+  flex: 1 1 0;
+  padding: 8px 2px;
+  border-right: 1px solid var(--edge);
+}
+.done-stats div:last-child { border-right: 0; }
+.done-stats b {
+  display: block;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 28px;
+}
+.done-stats i { font-style: normal; font-size: 9px; letter-spacing: 2px; color: var(--dim); }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+
+.done-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  font-size: 12px;
+  text-align: left;
+}
+.done-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border-bottom: 1px solid #262727;
+}
+.done-list li span:first-child { color: var(--dim); }
+
+.done-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+/* ==========================================================================
+   LANDSCAPE — put the dial beside the readouts instead of above them
+   ========================================================================== */
+@media (orientation: landscape) and (max-height: 560px) {
+  .rig {
+    display: grid;
+    /* explicit minmax on both tracks: the dial gets a bounded share of the
+       width instead of an `auto` track sized by an 856px canvas */
+    grid-template-columns: minmax(0, 44vw) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 14px;
+  }
+  .hud { grid-column: 1 / -1; }
+  .gauge-wrap { grid-row: 2 / 4; grid-column: 1; height: 100%; }
+  .cards { grid-row: 2; grid-column: 2; align-self: center; max-width: none; }
+  .controls { grid-row: 3; grid-column: 2; align-self: center; max-width: none; }
+  .shot-msg {
+    /* no room for its own line -- float it over the dial instead of
+       dropping the PASS/FAIL feedback entirely */
+    position: absolute;
+    left: 12px;
+    bottom: 6px;
+    margin: 0;
+  }
+  .dpad { width: 144px; height: 144px; }
+  .dbtn { width: 48px; height: 48px; }
+  .d-up { left: 48px; top: 0; }
+  .d-left { left: 0; top: 48px; }
+  .d-right { left: 96px; top: 48px; }
+  .d-down { left: 48px; top: 96px; }
+  .dpad-hub { left: 48px; top: 48px; width: 48px; height: 48px; }
+  .measure { width: 112px; height: 112px; font-size: 14px; letter-spacing: .5px; }
+}
