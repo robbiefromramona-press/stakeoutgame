@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<title>STAKE-OUT — Container 2 (Bubble Level)</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0c0c'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2322d422' stroke-width='3'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/container2.css" />
+</head>
+<body>
+
+<!-- ====================================================================== -->
+<!-- START — nothing else is live until START is pressed.                   -->
+<!-- ====================================================================== -->
+<section id="screen-start" class="screen is-active">
+  <div class="start-wrap">
+    <p class="sb-kicker">STAKE-OUT &nbsp;&bull;&nbsp; SANDBOX RIG</p>
+    <h1 class="sb-title">CONTAINER 2</h1>
+    <p class="sb-sub">RIGHT SCREEN — BUBBLE LEVEL</p>
+
+    <button type="button" id="startBtn" class="start-btn">START</button>
+
+    <div class="opt-block">
+      <p class="opt-label">LEVEL — BUBBLE TOLERANCE &amp; TWITCHINESS</p>
+      <div class="opt-row" id="levelPicker">
+        <button type="button" class="opt-btn is-on" data-level="0">1</button>
+        <button type="button" class="opt-btn" data-level="1">2</button>
+        <button type="button" class="opt-btn" data-level="2">3</button>
+        <button type="button" class="opt-btn" data-level="3">4</button>
+      </div>
+
+      <p class="opt-label">STICK GAIN — HOW FAR A FULL PUSH ASKS THE BUBBLE TO GO</p>
+      <div class="opt-row" id="gainPicker">
+        <button type="button" class="opt-btn wide" data-gain="0.6">SOFT</button>
+        <button type="button" class="opt-btn wide is-on" data-gain="1">NORMAL</button>
+        <button type="button" class="opt-btn wide" data-gain="1.4">SHARP</button>
+      </div>
+
+      <p class="opt-label">STICK RETURN</p>
+      <div class="opt-row" id="returnPicker">
+        <button type="button" class="opt-btn wide is-on" data-return="hold">HOLD</button>
+        <button type="button" class="opt-btn wide" data-return="spring">SPRING</button>
+      </div>
+
+      <p class="opt-hint" id="optHint">&nbsp;</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ====================================================================== -->
+<!-- CONTAINER 2 — vial, joystick, MEASURE. No map, no arrows, no clock.    -->
+<!-- ====================================================================== -->
+<section id="screen-c2" class="screen">
+  <div class="rig" id="rig">
+
+    <header class="hud">
+      <button type="button" id="backBtn" class="hud-back" aria-label="Back to start">&#10094;</button>
+      <span class="hud-seg"><i>LVL</i> <b id="hudLevel">1</b></span>
+      <span class="hud-seg"><i>TOL</i> <b id="hudTol">30</b><i>%</i></span>
+      <span class="hud-seg"><i>GAIN</i> <b id="hudGain">NORMAL</b></span>
+      <span class="hud-seg"><i>STICK</i> <b id="hudReturn">HOLD</b></span>
+    </header>
+
+    <!-- the vial. pointer-events are off so the engine's own mouse handler
+         can never compete with the joystick for control of the bubble. -->
+    <div class="gauge-wrap">
+      <canvas id="bubbleCanvas" class="gauge" width="860" height="860"
+              aria-label="Bubble level gauge"></canvas>
+    </div>
+
+    <!-- live telemetry: proves the inverse relationship numerically -->
+    <div class="telem" id="telem">
+      <div class="t-cell"><i>STICK</i><b id="tStick">0.00, 0.00</b></div>
+      <div class="t-cell"><i>TARGET</i><b id="tTarget">0.00, 0.00</b></div>
+      <div class="t-cell"><i>VERDICT</i><b id="tVerdict" class="idle">IDLE</b></div>
+    </div>
+
+    <div class="controls">
+      <!-- analog stick: continuous vector, not four discrete buttons -->
+      <div class="stick" id="stick" role="application" aria-label="Bubble level joystick">
+        <span class="stick-ring" aria-hidden="true"></span>
+        <span class="stick-cross" aria-hidden="true"></span>
+        <span class="stick-nub" id="stickNub" aria-hidden="true"></span>
+      </div>
+
+      <div class="right-col">
+        <button type="button" id="measureBtn" class="measure" aria-label="Measure point">
+          <span>MEASURE</span>
+        </button>
+        <button type="button" id="rerollBtn" class="reroll">NEW TILT</button>
+      </div>
+    </div>
+
+    <p class="shot-msg" id="shotMsg"></p>
+    <ul class="shot-log" id="shotLog"></ul>
+  </div>
+</section>
+
+<!-- The vendored engine one level up, INSIDE the published folder.
+     Netlify serves sandbox-test/ as the site root, so this resolves to
+     /js/game-engine.js -- the same copy Container 1 loads. Not a second
+     duplicate; see ../README.md, "Known port-back cleanup". -->
+<script src="../js/game-engine.js"></script>
+<script src="js/container2.js"></script>
+</body>
+</html>

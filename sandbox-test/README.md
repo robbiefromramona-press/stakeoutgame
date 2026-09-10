@@ -77,6 +77,66 @@ inside the 0.03 ft dead zone, so the rig separates them:
 
 ---
 
+## Container 2 — RIGHT SCREEN (bubble level)
+
+**Status: first pass built, awaiting playtest feedback.** Lives at
+`container2/`, deployed to `/container2/`. Container 1 is untouched by it.
+
+Isolates the vial, an analog joystick and MEASURE. No position map, no
+directional arrows, no readout cards, no clock.
+
+### The bug it exists to fix
+
+In V10 the on-screen pads have **no effect on the bubble**. That was never a
+physics problem — it is a missing wire. `bubbleTarget` in `game-engine.js`
+has exactly two writers:
+
+1. `onBubbleMouseMove()` — a real mouse moving over the vial canvas
+2. the **arrow** keys, in `update()`
+
+The pads call `setDirection()`, which writes `keys['w'|'a'|'s'|'d']`, and
+`update()` only ever applies those four to `pos.x` / `pos.y`. So the pads
+drive the player's *position*. Nothing reachable by a thumb was ever
+connected to the bubble.
+
+### The fix attempted
+
+Rather than edit the engine — shared byte-for-byte with Container 1 and the
+main game — the shell feeds the joystick through the engine's one existing
+analog bubble input: the vial's own `mousemove` handler. Each frame it
+synthesises a mousemove at the canvas coordinate the stick points at, which
+is exactly what a desktop mouse already does.
+
+That yields the inverse for free, because the engine already inverts:
+
+```js
+bubbleTarget.x = -bx;   // "the bubble's resting point sits
+bubbleTarget.y = -by;   //  opposite wherever the mouse is"
+```
+
+Push the stick toward the bubble and the bubble is driven away from that
+side. Verified empirically by frame-differencing the vial canvas: correct on
+all four axes.
+
+### Rig options
+
+- **Level 1–4** — bubble tolerance (30% → 3%) and, via `bubbleHump`,
+  how twitchy the vial is.
+- **Stick gain** SOFT / NORMAL / SHARP — how far a full push asks the
+  bubble to travel. Shell-side only.
+- **Stick return** HOLD / SPRING — HOLD leaves the tilt where you put it,
+  matching the mouse in the real game. SPRING recentres on release, which
+  also commands the bubble back to level.
+
+`NEW TILT` re-randomises the bubble to 0.85–0.98 off centre for a fresh
+correction to make.
+
+Mode is hard-wired to **POLE**. In BIPOD the vial only unlocks after the
+player walks and then releases, and this container has no walking — the
+bubble would stay locked and dead forever.
+
+---
+
 ## The global measure fix
 
 The full game's `js/app.js` carries a stage-wide click listener that fires a
@@ -155,11 +215,33 @@ The cleaner long-term fix is to set Netlify's publish directory to the repo
 root and serve the sandbox at `/sandbox-test/`, which removes the need for a
 copy entirely. Left alone for now so the sandbox keeps its own site.
 
+`container2/` loads `../js/game-engine.js` — that reaches up to the *same*
+vendored copy Container 1 uses, which is still inside the published root. It
+is not a second duplicate, and it must not become one.
+
+### Container 2's debts
+
+Both exist only because the engine is shared and could not be edited on this
+pass. Both should be paid before the port back:
+
+1. **The synthetic-mousemove adapter should become a real engine method.**
+   `driveBubble()` in `container2/js/container2.js` fakes a mouse event to
+   reach `bubbleTarget`. The clean version is a first-class
+   `setBubbleVector(x, y)` on the engine, mirroring `setDirection()` — that
+   is the actual fix the main game needs, and it deletes both the adapter
+   and the `GAUGE_R_RATIO` constant that currently mirrors `BUBBLE_GAUGE`.
+2. **Bubble-only scoring should become a `bubbleOnly` flag**, mirroring
+   `positionOnly`. Container 2 currently does its own one-line tolerance
+   test in the shell because the engine's `handleClick()` also grades
+   horizontal position, and this rig starts the player 3–12 ft away with no
+   way to walk — every shot would fail for a reason you cannot see.
+
 ---
 
 ## Build order
 
-1. **Container 1** — left screen. ← *you are here*
-2. **Container 2** — right screen (bubble level, inverse joystick). Not started.
+1. **Container 1** — left screen. Confirmed working.
+2. **Container 2** — right screen (bubble level, inverse joystick).
+   ← *you are here*: bubble responds correctly, feel still needs tuning.
 3. **Combined** — both halves on one screen, as they'll appear in-game.
 4. **Port back** into the main build. Only after step 3 is confirmed.

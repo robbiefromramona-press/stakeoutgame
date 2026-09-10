@@ -1,0 +1,366 @@
+/* ==========================================================================
+   STAKE-OUT — CONTAINER 2 (bubble level) stylesheet
+   --------------------------------------------------------------------------
+   Same plain-flexbox approach as Container 1's sheet: no artwork, no overlay
+   coordinates, nothing to line up. Deliberately a separate file rather than
+   an import of ../css/sandbox.css, so tuning this container can never change
+   how Container 1 looks.
+
+   The accent shifts from Container 1's yellow to the vial green, because on
+   this screen the bubble is the subject and the yellow is what the engine
+   paints the tolerance ring with -- reusing yellow for chrome would compete
+   with the one thing you are meant to be watching.
+   ========================================================================== */
+
+:root {
+  --green:   #22d422;
+  --green-2: #8bf05a;
+  --yellow:  #f5c518;
+  --ink:     #0b0c0c;
+  --panel:   #151616;
+  --panel-2: #1e1f1f;
+  --edge:    #3a3b3b;
+  --dim:     #7d7f7f;
+  --ok:      #00e83c;
+  --bad:     #ff1f1f;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--ink);
+  color: #fff;
+  font-family: "Courier New", Consolas, monospace;
+  overscroll-behavior: none;
+}
+
+body {
+  overflow: hidden;
+  touch-action: none;      /* a thumb on the stick must never scroll the page */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.screen { display: none; height: 100%; }
+.screen.is-active { display: block; }
+
+/* ==========================================================================
+   START SCREEN
+   ========================================================================== */
+.start-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  text-align: center;
+  overflow-y: auto;
+}
+
+.sb-kicker { margin: 0; font-size: 11px; letter-spacing: 4px; color: var(--dim); }
+
+.sb-title {
+  margin: 6px 0 0;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(28px, 8.5vw, 44px);
+  letter-spacing: 3px;
+  background: var(--green);
+  color: #000;
+  padding: 3px 22px;
+}
+
+.sb-sub { margin: 9px 0 0; font-size: clamp(10px, 3vw, 12px); letter-spacing: 3px; color: var(--green); }
+
+.start-btn {
+  margin: 26px 0 4px;
+  width: min(52vw, 200px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 5px solid var(--green);
+  background: radial-gradient(circle at 50% 34%, #14361a 0%, #071007 72%);
+  color: var(--green-2);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(28px, 8vw, 40px);
+  letter-spacing: 4px;
+  cursor: pointer;
+  box-shadow: 0 0 0 6px #000, 0 10px 30px rgba(0, 0, 0, .7);
+  transition: transform .08s ease, background .08s ease;
+}
+.start-btn:active { transform: scale(.96); background: radial-gradient(circle at 50% 34%, #2b7a2b 0%, #0d2a0d 72%); }
+
+.opt-block { margin-top: 18px; width: min(92vw, 420px); }
+.opt-label { margin: 12px 0 6px; font-size: 10px; letter-spacing: 2px; color: var(--dim); }
+.opt-row { display: flex; gap: 8px; justify-content: center; }
+
+.opt-btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  border: 2px solid var(--edge);
+  background: var(--panel);
+  color: var(--dim);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+.opt-btn.is-on { border-color: var(--green); background: var(--green); color: #000; }
+
+.opt-hint {
+  margin: 14px 0 0;
+  min-height: 3.6em;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+/* ==========================================================================
+   RIG
+   ========================================================================== */
+.rig {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: max(8px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+}
+
+.hud {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  padding: 7px 40px;
+  border-bottom: 2px solid var(--edge);
+  font-size: clamp(10px, 2.9vw, 12px);
+  letter-spacing: .5px;
+}
+.hud-seg i { color: var(--dim); font-style: normal; }
+.hud-seg b { color: var(--green); }
+
+.hud-back {
+  position: absolute;
+  left: 2px; top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  border: 2px solid var(--edge);
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---- the vial ----------------------------------------------------------- */
+.gauge-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.gauge {
+  /* Replaced element with an intrinsic 860x860 box; capping both axes fits it
+     to the tighter side and keeps it square. See Container 1's sheet for why
+     height:100% + aspect-ratio is the wrong tool here. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  /* The engine draws the bezel out to r+16=156 inside 430 layout units, so
+     roughly a quarter of the canvas is transparent margin. 1.15 reclaims most
+     of it while leaving the engine's own caption (drawn at layout y=50) clear
+     of the top edge -- push this higher and that caption clips. */
+  transform: scale(1.15);
+  /* the engine binds its own mousemove handler to this canvas; with pointer
+     events off it can never fight the joystick for the bubble */
+  pointer-events: none;
+}
+
+/* ---- telemetry ---------------------------------------------------------- */
+.telem {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+}
+.t-cell {
+  flex: 1 1 0;
+  background: var(--panel);
+  border: 2px solid var(--edge);
+  padding: 5px 6px 6px;
+  text-align: center;
+  min-width: 0;
+}
+.t-cell i {
+  display: block;
+  font-style: normal;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #4a4b4b;
+}
+.t-cell b {
+  display: block;
+  font-size: clamp(11px, 3.3vw, 14px);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#tVerdict.ok   { color: var(--ok); }
+#tVerdict.idle { color: #4a4b4b; }
+
+/* ---- controls ----------------------------------------------------------- */
+.controls {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* the analog stick */
+.stick {
+  position: relative;
+  width: 156px;
+  height: 156px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 3px solid var(--edge);
+  background: radial-gradient(circle at 50% 38%, #232424 0%, #101111 72%);
+  touch-action: none;
+  cursor: grab;
+}
+.stick.is-down { cursor: grabbing; border-color: var(--green); }
+
+.stick-ring {
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  border: 1px dashed #333;
+}
+.stick-cross {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, transparent calc(50% - 1px), #2a2b2b calc(50% - 1px), #2a2b2b calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent calc(50% - 1px), #2a2b2b calc(50% - 1px), #2a2b2b calc(50% + 1px), transparent calc(50% + 1px));
+  border-radius: 50%;
+}
+
+.stick-nub {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 58px; height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  border: 3px solid var(--green);
+  background: radial-gradient(circle at 40% 34%, #6de06d 0%, #1d7a1d 70%, #0d4a0d 100%);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .6);
+  will-change: transform;
+}
+
+.right-col { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+.measure {
+  width: 118px; height: 118px;
+  padding: 0;
+  border-radius: 50%;
+  border: 5px solid var(--yellow);
+  background: radial-gradient(circle at 50% 34%, #2f2a08 0%, #120f02 72%);
+  color: var(--yellow);
+  /* sized for the fallback face -- Arial Narrow is absent on iOS and most
+     Android builds, so the label is really set in something wider */
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 16px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 0 0 5px #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.measure.is-down { background: var(--yellow); color: #000; }
+
+.reroll {
+  min-width: 118px;
+  min-height: 34px;
+  border: 2px solid var(--edge);
+  background: var(--panel-2);
+  color: var(--dim);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+.reroll:active { background: var(--edge); color: #fff; }
+
+/* ---- messages ----------------------------------------------------------- */
+.shot-msg {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 1.3em;
+  font-size: 13px;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.shot-msg.is-on { opacity: 1; }
+.shot-msg.pass { color: var(--ok); }
+.shot-msg.fail { color: var(--bad); }
+
+.shot-log {
+  flex: 0 0 auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  min-height: 1.4em;
+}
+.shot-log li { padding: 2px 6px; border: 1px solid var(--edge); color: var(--dim); }
+.shot-log li.p { border-color: var(--ok); color: var(--ok); }
+.shot-log li.f { border-color: var(--bad); color: var(--bad); }
+
+/* ==========================================================================
+   LANDSCAPE — vial beside the controls
+   ========================================================================== */
+@media (orientation: landscape) and (max-height: 560px) {
+  .rig {
+    display: grid;
+    grid-template-columns: minmax(0, 42vw) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 14px;
+  }
+  .hud { grid-column: 1 / -1; }
+  .gauge-wrap { grid-row: 2 / 4; grid-column: 1; height: 100%; }
+  .telem { grid-row: 2; grid-column: 2; align-self: center; max-width: none; }
+  .controls { grid-row: 3; grid-column: 2; align-self: center; max-width: none; }
+  .shot-msg { position: absolute; left: 12px; bottom: 22px; margin: 0; }
+  .shot-log { position: absolute; left: 12px; bottom: 4px; }
+  .stick { width: 132px; height: 132px; }
+  .stick-nub { width: 50px; height: 50px; margin: -25px 0 0 -25px; }
+  .measure { width: 100px; height: 100px; font-size: 14px; }
+  .reroll { min-width: 100px; min-height: 30px; font-size: 12px; }
+}
