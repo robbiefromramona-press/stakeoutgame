@@ -1,0 +1,11 @@
+# Stake-Out has no build step — it's plain HTML/CSS/JS served from the repo
+# root. Declaring that here means a Git-linked deploy needs no settings in the
+# Netlify UI, and nothing tries to detect a framework that isn't there.
+
+[build]
+  publish = "."
+
+# The port used by `python -m http.server` locally, for `netlify dev`.
+[dev]
+  framework = "#static"
+  publish = "."
