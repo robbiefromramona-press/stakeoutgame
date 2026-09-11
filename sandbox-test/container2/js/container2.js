@@ -44,6 +44,58 @@
   const LEVELS = StakeOut.LEVELS;
   const $ = (id) => document.getElementById(id);
 
+  /* ======================================================================== */
+  /* GLOBAL TIME SCALE                                                        */
+  /* ------------------------------------------------------------------------ */
+  /* Runs the WHOLE simulation slower without altering a single mechanic.
+     Everything that happens still happens, in the same order, with the same
+     character -- it just happens further apart in real time.
+
+     game-engine.js computes dt in exactly one place:
+
+         const dt = Math.min((t - lastT) / 1000, 0.05);   // loop(), line ~541
+
+     ...where `t` is the timestamp requestAnimationFrame hands it, and 15 call
+     sites downstream multiply by that dt: the bubble spring and damping, the
+     per-level random noise, pole drift, walking speed, the reveal timer. Hand
+     the engine a clock that advances at 75% of real time and all fifteen slow
+     down together, in proportion. Nothing is retuned, so the bubble still
+     rings exactly as it did -- you simply get a third more real time to read
+     each swing and hit MEASURE inside it.
+
+     Implemented by wrapping the global requestAnimationFrame, because that is
+     the engine's only source of time and it calls the bare global. Wrapping
+     is also why this stays a Container 2 change: it is scoped to this page,
+     so Container 1 and the main game are untouched.
+
+     NOT a damping change. Damping, spring constant, BUBBLE_PERSONALITY and
+     every tuning table are exactly as shipped. */
+  let timeScale = 0.75;          // 1 = real time, 0.75 = the default here
+  let baseReal = null;           // real timestamp the current scale started at
+  let baseVirtual = 0;           // virtual time already elapsed before it
+
+  function virtualTime(t) {
+    if (baseReal === null) baseReal = t;
+    return baseVirtual + (t - baseReal) * timeScale;
+  }
+
+  function setTimeScale(s) {
+    // rebase first so the virtual clock never jumps backwards or forwards --
+    // a discontinuity here would hand the engine a wild dt for one frame
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    baseVirtual = virtualTime(now);
+    baseReal = now;
+    timeScale = s;
+  }
+
+  // Install before StakeOut.create() so the engine's loop never sees the
+  // unwrapped clock. Returns the real rAF id, so cancelAnimationFrame still
+  // works untouched.
+  const realRaf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function (cb) {
+    return realRaf(function (t) { cb(virtualTime(t)); });
+  };
+
   /* ---- geometry mirrored from BUBBLE_GAUGE in game-engine.js -------------
      The engine draws the vial at cx/cy 215, r 140 in 430 layout units (an
      860px canvas backed at 2x). cx and cy are exactly the canvas centre, so
@@ -89,10 +141,14 @@
     Array.prototype.forEach.call($('returnPicker').children, function (b) {
       b.classList.toggle('is-on', b.dataset.return === stickReturn);
     });
+    Array.prototype.forEach.call($('speedPicker').children, function (b) {
+      b.classList.toggle('is-on', Number(b.dataset.speed) === timeScale);
+    });
 
     const lvl = LEVELS[selectedLevel];
     $('optHint').textContent =
       'BUBBLE TOLERANCE ' + lvl.bubbleTolerancePct + '%  •  ' +
+      'SPEED ' + Math.round(timeScale * 100) + '%  •  ' +
       (stickReturn === 'hold'
         ? 'HOLD: the stick stays where you leave it, like the mouse does in the real game — let go and the tilt stays put.'
         : 'SPRING: the stick snaps back to centre on release, which also commands the bubble back to level.');
@@ -106,6 +162,9 @@
   });
   Array.prototype.forEach.call($('returnPicker').children, function (b) {
     b.addEventListener('click', function () { stickReturn = b.dataset.return; paintOptions(); });
+  });
+  Array.prototype.forEach.call($('speedPicker').children, function (b) {
+    b.addEventListener('click', function () { setTimeScale(Number(b.dataset.speed)); paintOptions(); });
   });
 
   $('startBtn').addEventListener('click', launch);
@@ -175,6 +234,7 @@
     $('hudTol').textContent = LEVELS[selectedLevel].bubbleTolerancePct;
     $('hudGain').textContent = GAIN_NAME[String(stickGain)] || stickGain;
     $('hudReturn').textContent = stickReturn.toUpperCase();
+    $('hudSpeed').textContent = Math.round(timeScale * 100) + '%';
 
     game.startLevel(selectedLevel, 'pole');
     game.startIfWaiting();     // this rig's START screen is the start gate
@@ -385,9 +445,11 @@
     launch: launch,
     showScreen: showScreen,
     drive: function (x, y) { jx = x; jy = y; paintNub(); },
+    setSpeed: setTimeScale,
     state: function () {
       return { jx: jx, jy: jy, gain: stickGain, ret: stickReturn,
-               bubblePct: lastBubblePct, level: selectedLevel, running: running };
+               speed: timeScale, bubblePct: lastBubblePct,
+               level: selectedLevel, running: running };
     }
   };
 })();

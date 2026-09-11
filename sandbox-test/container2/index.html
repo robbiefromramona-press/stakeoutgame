@@ -37,6 +37,13 @@
         <button type="button" class="opt-btn wide" data-gain="1.4">SHARP</button>
       </div>
 
+      <p class="opt-label">GAME SPEED — SLOWS EVERYTHING, CHANGES NO MECHANIC</p>
+      <div class="opt-row" id="speedPicker">
+        <button type="button" class="opt-btn wide" data-speed="1">100%</button>
+        <button type="button" class="opt-btn wide is-on" data-speed="0.75">75%</button>
+        <button type="button" class="opt-btn wide" data-speed="0.5">50%</button>
+      </div>
+
       <p class="opt-label">STICK RETURN</p>
       <div class="opt-row" id="returnPicker">
         <button type="button" class="opt-btn wide is-on" data-return="hold">HOLD</button>
@@ -61,6 +68,7 @@
       <span class="hud-seg"><i>TOL</i> <b id="hudTol">30</b><i>%</i></span>
       <span class="hud-seg"><i>GAIN</i> <b id="hudGain">NORMAL</b></span>
       <span class="hud-seg"><i>STICK</i> <b id="hudReturn">HOLD</b></span>
+      <span class="hud-seg"><i>SPEED</i> <b id="hudSpeed">75%</b></span>
     </header>
 
     <!-- the vial. pointer-events are off so the engine's own mouse handler

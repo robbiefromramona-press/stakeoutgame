@@ -127,6 +127,35 @@ all four axes.
 - **Stick return** HOLD / SPRING — HOLD leaves the tilt where you put it,
   matching the mouse in the real game. SPRING recentres on release, which
   also commands the bubble back to level.
+- **Game speed** 100% / 75% / 50%, default **75%** — a global time scale.
+
+### Game speed — how it works, and what it does not touch
+
+`game-engine.js` computes `dt` in exactly one place (`loop()`, line ~541)
+from the timestamp `requestAnimationFrame` hands it, and 15 call sites
+downstream multiply by that `dt`: the bubble spring and damping, the
+per-level noise, pole drift, walking speed, the reveal timer. Container 2
+wraps the global `requestAnimationFrame` so the engine receives a clock
+running at 75% of real time, and all fifteen slow down together.
+
+**No mechanic is retuned.** Damping, spring constant, `BUBBLE_PERSONALITY`
+and every tuning table are exactly as shipped. The bubble still rings the
+same way — you just get more real time to read each swing.
+
+Wrapping rAF is also what keeps this scoped to Container 2: it affects only
+this page, so Container 1 and the main game are untouched. Porting it back
+later is the same few lines in whichever shell wants it.
+
+Measured at Level 1, released from full deflection:
+
+| Speed | Travel to first in-tolerance | Steady swing rate |
+|---|---|---|
+| 100% | 600 ms | 25 %/sec |
+| 75% | 840 ms | 27 %/sec |
+| 50% | 1560 ms | 27 %/sec |
+
+Travel time scales as expected. The **steady-state jitter near centre does
+not slow down**, and that is not a bug in the time scale — see below.
 
 `NEW TILT` re-randomises the bubble to 0.85–0.98 off centre for a fresh
 correction to make.
@@ -218,6 +247,35 @@ copy entirely. Left alone for now so the sandbox keeps its own site.
 `container2/` loads `../js/game-engine.js` — that reaches up to the *same*
 vendored copy Container 1 uses, which is still inside the published root. It
 is not a second duplicate, and it must not become one.
+
+### The engine's noise is frame-coupled, not time-coupled
+
+Found while measuring the game-speed change. In `update()`:
+
+```js
+ax += (Math.random() - 0.5) * lvl.bubbleHump * 1.5;
+ay += (Math.random() - 0.5) * lvl.bubbleHump * 1.5;
+bubble.vx += ax * dt;  bubble.vy += ay * dt;
+```
+
+One random kick is injected **per frame**, not per unit of simulated time.
+Each kick scales with `dt`, but the number of kicks per real second does
+not — so the accumulated random walk goes as `sqrt(T · dt)`, which depends
+on the frame rate.
+
+Two consequences:
+
+1. Slowing the clock packs more kicks into each simulated second, so the
+   residual jitter near centre gets relatively stronger. That is why the
+   steady swing rate above stays flat while travel time scales properly.
+2. **A 120 Hz phone gets a calmer bubble than a 60 Hz phone**, from the
+   same code, at the same level. That is a real latent bug in the shipping
+   game, not just the sandbox.
+
+The fix is to make the noise time-normalised rather than per-frame, so a
+given simulated second carries the same disturbance at any frame rate. That
+is a mechanics change and was explicitly out of scope for this pass — left
+here so it is not lost.
 
 ### Container 2's debts
 
