@@ -268,6 +268,7 @@ const StakeOut = (function () {
     let bubbleHome = { x: 1, y: 0 };
     let bubbleHeld = false;
     let bubbleGrabbed = false;
+    let stickHeld = false;        // right thumb stick is being held
     let measureEnabled = false;
     let revealPending = 0;
     let onLine = false;
@@ -307,8 +308,10 @@ const StakeOut = (function () {
       const leavingBubble = activePanel === 'bub';
       activePanel = next;
 
-      // a finger or cursor that was on the vial does not carry over a hand-off
+      // a finger or cursor on the vial, or a thumb on the stick, does not
+      // carry over a hand-off
       bubbleGrabbed = false;
+      stickHeld = false;
 
       // Walking away from the bubble resets it to its off-centre home rather
       // than leaving it parked at the centre you just earned -- otherwise the
@@ -359,7 +362,7 @@ const StakeOut = (function () {
       active = false; running = false; waitingToStart = true;
       clearTimers();
       keys = {};
-      bubbleGrabbed = false; movingLastFrame = false; revealPending = 0;
+      bubbleGrabbed = false; stickHeld = false; movingLastFrame = false; revealPending = 0;
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     }
 
@@ -381,7 +384,7 @@ const StakeOut = (function () {
       bubbleHome = { x: Math.cos(bang) * brad, y: Math.sin(bang) * brad };
       bubble = { x: bubbleHome.x, y: bubbleHome.y, vx: 0, vy: 0 };
       bubbleTarget = { x: bubbleHome.x, y: bubbleHome.y };
-      bubbleGrabbed = false;
+      bubbleGrabbed = false; stickHeld = false;
 
       timeNoInput = 0; driftAngle = null; driftAccumulated = 0;
       revealPending = 0; movingLastFrame = false; onLine = false;
@@ -497,6 +500,57 @@ const StakeOut = (function () {
     function releaseDirections() {
       keys['w'] = false; keys['a'] = false; keys['s'] = false; keys['d'] = false;
     }
+
+    /* ---- V11.2: the two thumb sticks ---------------------------------------
+       The instrument art has a round pad on each side. Until now both were
+       four separate 28px arrow hotspots driving the SAME four walk directions,
+       which is two problems at once on a phone: 28px is far under a reliable
+       thumb target, and the right pad duplicated the left instead of doing a
+       job of its own. So the bubble had no thumb control at all and POLE --
+       which needs you to walk and level simultaneously -- was unplayable,
+       because levelling meant parking a thumb on the vial.
+
+       Now each pad is one round zone the size of the whole painted pad, and
+       they do different jobs: LEFT walks, RIGHT levels the bubble.
+
+       Both take a direction vector from where the thumb sits relative to the
+       pad centre, so neither reimplements any rule -- the walk stick writes
+       into the same `keys` map WASD writes into, and the bubble stick writes
+       the same bubbleTarget the vial and the arrow keys write. */
+    const STICK_DEADZONE = 0.28;   // fraction of pad radius before it registers
+
+    function clampToUnit(nx, ny) {
+      const m = Math.hypot(nx, ny);
+      return m > 1 ? { x: nx / m, y: ny / m } : { x: nx, y: ny };
+    }
+
+    /* LEFT stick -> walking. Eight-way rather than four: the old layout could
+       manage a diagonal by putting one thumb on each pad, and reassigning the
+       right pad would have quietly taken that away. Reading both axes past the
+       dead zone gives diagonals back from a single thumb. */
+    function setWalkVector(nx, ny) {
+      if (!active || !posPanelLive()) { releaseDirections(); return; }
+      const v = clampToUnit(nx, ny);
+      keys['w'] = v.y < -STICK_DEADZONE;
+      keys['s'] = v.y >  STICK_DEADZONE;
+      keys['a'] = v.x < -STICK_DEADZONE;
+      keys['d'] = v.x >  STICK_DEADZONE;
+    }
+
+    /* RIGHT stick -> the bubble. Inverted, exactly like the vial and the arrow
+       keys: push the stick right and the bubble runs left, because you are
+       tilting the rod, not dragging the bubble. Position maps straight to
+       tilt, so a small push is a small tilt -- that is what makes it precise
+       enough to chase a 3% tolerance with a thumb. */
+    function setBubbleStick(nx, ny) {
+      if (!active || !bubbleActive) { stickHeld = false; return; }
+      stickHeld = true;
+      const v = clampToUnit(nx, ny);
+      bubbleTarget.x = -v.x;
+      bubbleTarget.y = -v.y;
+    }
+
+    function releaseBubbleStick() { stickHeld = false; }
 
     // a pad press is a valid way through the start gate; unlike handleClick()
     // it can never fall through into a measurement
@@ -633,7 +687,7 @@ const StakeOut = (function () {
          cancels the spring but leaves the per-frame random jitter with nothing
          pulling against it, so the bubble random-walks off to the rim within a
          couple of seconds. */
-      const steering = bubbleGrabbed || arrowHeld;
+      const steering = bubbleGrabbed || arrowHeld || stickHeld;
       const clamped = bubbleHeld && !steering;
 
       if (clamped) {
@@ -952,6 +1006,9 @@ const StakeOut = (function () {
       handleClick: handleClick,
       setDirection: setDirection,
       releaseDirections: releaseDirections,
+      setWalkVector: setWalkVector,
+      setBubbleStick: setBubbleStick,
+      releaseBubbleStick: releaseBubbleStick,
       startIfWaiting: startIfWaiting,
       get isActive() { return active; },
       // read-only windows into V11 state, for console poking and headless checks

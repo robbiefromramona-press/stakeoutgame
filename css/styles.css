@@ -39,12 +39,42 @@ body {
   overscroll-behavior: none;
 }
 
+/* ---- scroll lock while playing ------------------------------------------
+   app.js puts .is-playing on <html> for the duration of the player screen.
+   Sizing in dvh stops the page OVERFLOWING; this stops it MOVING at all, which
+   is a different problem: on a phone a drag that starts on the instrument can
+   still pan the page, rubber-band it, or retract the address bar mid-shot, and
+   any of those shift the gauges under your thumb while you are trying to level
+   a bubble to three percent.
+
+   position:fixed on both elements is what actually pins it -- overflow:hidden
+   alone is ignored on the body by mobile Safari. touch-action:none then stops
+   the browser claiming any drag as a scroll or pinch-zoom gesture before the
+   game ever sees it. The menu and the field report are deliberately left
+   scrollable; only play is locked. */
+html.is-playing, html.is-playing body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 /* ---- screens ------------------------------------------------------------ */
+/* Sizing uses dvh, the DYNAMIC viewport height, with vh kept above it as the
+   fallback for browsers that don't know dvh. This matters only on phones: vh
+   there is the LARGE viewport, measured as if the address bar were retracted,
+   so a box sized to 100vh is always taller than what you can actually see and
+   the page always has somewhere to scroll to. dvh is the height that is really
+   visible right now, so the stage fits and there is nothing to scroll. */
 .screen { display: none; }
 .screen.is-active {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 0;
 }
 
@@ -52,6 +82,7 @@ body {
   position: relative;
   container-type: size;
   width: min(100vw, calc(100vh * var(--aw) / var(--ah)));
+  width: min(100vw, calc(100dvh * var(--aw) / var(--ah)));
   aspect-ratio: var(--aw) / var(--ah);
   background-repeat: no-repeat;
   background-position: top center;
@@ -555,22 +586,58 @@ body {
   box-shadow: inset 0 0 1.6cqw rgba(255,216,61,.55);
 }
 
-/* --- D-pad cells: three columns per pad, three shared rows --------------- */
-.tc-dir { width: 4.774%; height: 7.162%; }
-.row-1 { top: 35.645%; }
-.row-2 { top: 42.806%; }
-.row-3 { top: 49.967%; }
-.pad-l.col-1 { left:  0.586%; }
-.pad-l.col-2 { left:  5.360%; }
-.pad-l.col-3 { left: 10.134%; }
-.pad-r.col-1 { left: 85.059%; }
-.pad-r.col-2 { left: 89.833%; }
-.pad-r.col-3 { left: 94.607%; }
+/* --- THUMB STICKS --------------------------------------------------------
+   One round zone per painted pad, replacing the four 28px arrow tiles each
+   pad used to carry. 28px is well under a dependable thumb target, which is
+   why the pads read as unresponsive on a phone; a whole-pad zone is roughly
+   three times the width and lands every time.
 
-/* V11: pads go dead whenever the position dial is not one of the live panels.
-   Kept subtle -- the arrows are painted into the artwork and cannot be hidden,
-   so this just takes away the pressable feel. */
-.tc-dir[disabled] { cursor: default; background-color: rgba(0,0,0,.34); }
+   Geometry: the old 3x3 tile grids spanned x[0.586,14.908] (left) and
+   x[85.059,99.381] (right), y[35.645,57.129]. These are grown a little into
+   the dead bezel either side -- stopping clear of the POINT POSITION panel at
+   17.12%, the BUBBLE panel at 82.88%, and the MEASURE discs at 59.08% -- so
+   the zone covers the painted pad with a margin rather than sitting inside it.
+
+   LEFT drives walking, RIGHT drives the bubble. They are divs, not buttons:
+   a stick is dragged, not clicked, and a button would fire a synthetic click
+   on release that the stage's tap-to-measure handler would see. */
+.tc-stick {
+  position: absolute;
+  pointer-events: auto;
+  top: 33.0%; height: 26.0%;
+  width: 16.5%;
+  border-radius: 50%;
+  touch-action: none;                 /* a drag here is a stick, never a scroll */
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition: background-color .1s linear;
+}
+.stick-l { left:  0%; }
+.stick-r { left: 83.5%; }
+
+/* the nub: shows where the stick thinks your thumb is. Parked dead centre and
+   invisible until touched, so it never fights the painted artwork. */
+.stick-nub {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 34%; aspect-ratio: 1;
+  margin: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .1s linear;
+}
+.tc-stick.is-down .stick-nub { opacity: 1; }
+.stick-l .stick-nub { background: radial-gradient(circle at 38% 34%, #fff8d0 12%, #f5c518 60%, #8a6f0a 100%); }
+.stick-r .stick-nub { background: radial-gradient(circle at 38% 34%, #dfffd0 12%, #22d422 60%, #0d6b0d 100%); }
+
+.tc-stick.is-down { background-color: rgba(255,255,255,.07); }
+
+/* dead whenever the panel it drives is not live. The pads are painted into
+   the artwork and cannot be hidden, so this just removes the pressable feel. */
+.tc-stick.is-off { cursor: default; background-color: rgba(0,0,0,.34); }
+.tc-stick.is-off .stick-nub { opacity: 0; }
 
 /* --- MEASURE discs ------------------------------------------------------- */
 .tc-measure {

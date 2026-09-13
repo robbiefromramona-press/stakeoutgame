@@ -87,10 +87,16 @@
             aria-label="Point position gauge"></canvas>
     <div class="panel-frame frame-pos is-idle" id="framePos" aria-hidden="true"></div>
 
-    <!-- right panel: bubble level — GREEN frame -->
+    <!-- right panel: bubble level — GREEN frame.
+         data-nomeasure is load-bearing: the vial is a CONTROL surface, not a
+         measure surface. Without it the stage's tap-to-measure handler treats
+         every touch on the vial as a shot, which on a phone means each attempt
+         to level the bubble logs a point and resets the bubble underneath your
+         thumb. Harmless on desktop (you steer by hovering, never clicking);
+         fatal on touch, where steering IS touching. -->
     <div class="panel-fill bub-fill" aria-hidden="true"></div>
     <canvas id="bubbleCanvas" class="gauge bub-gauge" width="860" height="860"
-            aria-label="Bubble level gauge"></canvas>
+            data-nomeasure aria-label="Bubble level gauge"></canvas>
     <div class="panel-frame frame-bub is-idle" id="frameBub" aria-hidden="true"></div>
 
     <!-- numeric readouts, over the two boxes at the foot of the left panel -->
@@ -107,24 +113,28 @@
 
     <!-- ------------------------------------------------------------------ -->
     <!-- TOUCH CONTROLS                                                       -->
-    <!-- Real hotspots sitting exactly over the D-pad arrows and the MEASURE  -->
-    <!-- discs painted into the frame art. Both pads drive the SAME four      -->
-    <!-- directions (whichever thumb is free), and both MEASURE discs fire    -->
+    <!-- Real hotspots sitting over the two round pads and the MEASURE discs -->
+    <!-- painted into the frame art. The pads are now two DIFFERENT sticks -- -->
+    <!-- left walks, right levels the bubble -- and both MEASURE discs fire   -->
     <!-- the same shot the desktop click fires. Pointer events, so a mouse    -->
     <!-- on desktop uses this identical path -- no touch-only branch.         -->
     <!-- data-nomeasure marks the whole cluster as "do not let the global     -->
     <!-- tap-to-measure handler see taps that started in here".               -->
     <!-- ------------------------------------------------------------------ -->
     <div class="tc" id="touchControls" data-nomeasure>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-2 row-1" data-dir="up"    aria-label="Walk up (left pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-1 row-2" data-dir="left"  aria-label="Walk left (left pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-3 row-2" data-dir="right" aria-label="Walk right (left pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-l col-2 row-3" data-dir="down"  aria-label="Walk down (left pad)"></button>
-
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-2 row-1" data-dir="up"    aria-label="Walk up (right pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-1 row-2" data-dir="left"  aria-label="Walk left (right pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-3 row-2" data-dir="right" aria-label="Walk right (right pad)"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-2 row-3" data-dir="down"  aria-label="Walk down (right pad)"></button>
+      <!-- Two thumb sticks, one per painted pad. Each is a single round zone
+           covering the whole pad rather than four small arrow tiles: the tiles
+           were 28 CSS px on a landscape phone, far under a reliable thumb
+           target, which is why the pads felt unresponsive to touch.
+           LEFT walks (eight-way, so one thumb can still go diagonal).
+           RIGHT levels the bubble — the job the vial used to need a cursor
+           for, and the reason POLE was unplayable on a phone.
+           The .stick-nub inside each one follows the thumb so you can see
+           what the stick thinks you are doing. -->
+      <div class="tc-stick stick-l" id="stickWalk" role="button" tabindex="-1"
+           aria-label="Walk stick"><span class="stick-nub"></span></div>
+      <div class="tc-stick stick-r" id="stickBubble" role="button" tabindex="-1"
+           aria-label="Bubble level stick"><span class="stick-nub"></span></div>
 
       <button type="button" tabindex="-1" class="tc-hit tc-measure meas-l" aria-label="Measure" disabled></button>
       <button type="button" tabindex="-1" class="tc-hit tc-measure meas-r" aria-label="Measure" disabled></button>
@@ -144,7 +154,7 @@
       <div>
         <p class="sg-1">PRESS SPACEBAR</p>
         <p class="sg-2">OR CLICK TO START</p>
-        <p class="sg-3">W A S D <em>or either D-PAD</em> to walk &nbsp;&bull;&nbsp; HOLD the cursor on the vial to level the bubble (inverted) &mdash; let go and it runs back out<br />
+        <p class="sg-3">W A S D <em>or the LEFT STICK</em> to walk &nbsp;&bull;&nbsp; the <em>RIGHT STICK</em>, the arrow keys, or the cursor held on the vial levels the bubble (inverted) &mdash; let go and it runs back out<br />
            Only the <em>boldly framed</em> panel is live &nbsp;&bull;&nbsp; BIPOD hands control back and forth; POLE keeps both live at once<br />
            MEASURE unlocks when both panels go live &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
       </div>

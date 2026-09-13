@@ -119,12 +119,43 @@ is not the same as earning the point.
 
 | Input | Does |
 |---|---|
-| `W` `A` `S` `D` | Walk — only while POINT POSITION is one of the live panels |
-| Cursor **held on** the bubble vial | Levels the bubble (inverted). Take it off the vial and the bubble runs home |
-| Arrow keys | Nudge the bubble target, as an alternative to the cursor |
+| **LEFT thumb stick** | Walk, eight-way. Live only while POINT POSITION is |
+| **RIGHT thumb stick** | Levels the bubble (inverted). Live only while BUBBLE LEVEL is |
+| `W` `A` `S` `D` | Walk — the keyboard equivalent of the left stick |
+| Cursor **held on** the bubble vial | Levels the bubble. Take it off and the bubble runs home |
+| Arrow keys | Nudge the bubble target, as another alternative |
 | `Space` / click | Open the start gate |
 | Left-click / MEASURE disc | Measure and log the point — refused until MEASURE is unlocked |
 | `Esc` | Abort back to the menu |
+
+### Touch
+
+Play in **landscape**; portrait shows a ROTATE TO PLAY nudge and leaves the
+vial too small to work with.
+
+The two round pads painted into the instrument are the sticks, and they do
+**different jobs** — left walks, right levels. That split is what makes POLE
+playable on a phone at all: POLE needs you to walk and level at the same time,
+which is impossible when levelling means parking a thumb on the vial itself.
+
+Three things had to be true before touch worked, and all three are load-bearing:
+
+1. **The vial is `data-nomeasure`.** It is a control surface, not a measure
+   surface. Without that flag the stage's tap-to-measure handler counts every
+   touch on the vial as a shot — so on a phone each attempt to level the bubble
+   logged a point and reset the bubble under your thumb. Invisible on desktop,
+   where you steer by hovering and never click it.
+2. **The vial and both sticks set `touch-action: none`.** Otherwise the browser
+   claims a drag as a page pan and fires `pointercancel` mid-stroke, which the
+   engine reads as "let go" and sends the bubble home.
+3. **The page is pinned while playing** (`html.is-playing`, `position: fixed`).
+   Sizing in `dvh` stops the page overflowing; pinning stops it moving at all,
+   so no drag can pan it, rubber-band it, or retract the address bar and shift
+   the gauges mid-shot.
+
+Each stick is one round zone covering its whole painted pad — about 97px on a
+landscape phone. The previous layout gave each of four arrow tiles 28px, well
+under a dependable thumb target, which is why the pads read as unresponsive.
 
 ---
 
@@ -259,4 +290,9 @@ publish subdirectory — serve the repo root.
 
 - Accounts or persistent player profiles. JOB / OPERATOR / INSTRUMENT are
   static placeholders.
+- Framerate-independent bubble jitter. The noise is injected once per *frame*
+  rather than per unit of simulated time, so accumulated jitter scales with
+  `dt` and a 120Hz phone gets a measurably calmer bubble than a 60Hz one from
+  identical code. Known, not yet fixed; the fix is to scale the kick by
+  `sqrt(1/60 / dt)`.
 - Drone lidar, survey topo, and the 3D walking map modules.

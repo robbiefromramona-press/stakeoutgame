@@ -46,6 +46,11 @@
       releaseAllTouch();   // a finger still down when the level ends must not stick
       clockStop();
     }
+    // Pin the page while playing so no drag can pan it, rubber-band it, or
+    // retract the phone's address bar mid-shot -- all of which move the gauges
+    // under the player's thumb. Lifted again on the menu and the report, which
+    // are ordinary scrollable pages. See html.is-playing in styles.css.
+    document.documentElement.classList.toggle('is-playing', name === 'player');
     window.scrollTo(0, 0);
   }
 
@@ -116,7 +121,8 @@
   const posDim = [$('posCanvas'), $('roLeft').parentNode, $('roTo').parentNode];
   const bubDim = [$('bubbleCanvas')];
   const measureBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-measure'));
-  const dirBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-dir'));
+  const stickWalk = $('stickWalk');     // LEFT pad  -> walking
+  const stickBubble = $('stickBubble'); // RIGHT pad -> bubble level
 
   const game = StakeOut.create({
     posCanvas: $('posCanvas'),
@@ -167,15 +173,15 @@
         if (!s.measureEnabled) el.classList.remove('is-down');
       });
 
-      /* The D-pads drive the position dial, so they go dead with it. The
-         engine refuses their input anyway; disabling the buttons means a
-         press on a dead pad also stops LOOKING like it did something, which
-         is the difference between "ignored" and "obviously not your turn".
-         Safe to flip here: BIPOD only hands control away on the frame the
-         last direction is released, so no pad is ever held when this runs. */
-      dirBtns.forEach(function (el) {
-        el.disabled = !s.posActive;
-        if (!s.posActive) el.classList.remove('is-down');
+      /* Each stick follows the panel it drives: the walk stick dies with the
+         position dial, the bubble stick with the vial. The engine refuses
+         input from a dead stick anyway; marking it here means a thumb on one
+         also stops LOOKING like it did something, which is the difference
+         between "ignored" and "obviously not your turn". */
+      [[stickWalk, s.posActive], [stickBubble, s.bubActive]].forEach(function (pair) {
+        const el = pair[0], live = pair[1];
+        el.classList.toggle('is-off', !live);
+        if (!live) el.classList.remove('is-down');
       });
     },
 
@@ -216,20 +222,7 @@
      there is no touch-only branch to keep in sync. Every handler stops the
      event so the tap-to-measure listener above never sees it.                */
   /* ======================================================================== */
-  const DIRECTIONS = ['up', 'down', 'left', 'right'];
-
-  /* Both pads drive the same four directions, so one direction can be held by
-     two pointers at once (a thumb on each pad's "up"). Count the pointers
-     holding each direction and release the key only when the last one lifts,
-     otherwise letting go of one pad would cancel the other pad's hold. */
-  const heldBy = { up: [], down: [], left: [], right: [] };
-  const dirPointers = new Map();      // pointerId -> { dir, el }
   const measPointers = new Map();     // pointerId -> element
-
-  function dropFrom(list, id) {
-    const i = list.indexOf(id);
-    if (i >= 0) list.splice(i, 1);
-  }
 
   function withinRect(el, x, y) {
     const r = el.getBoundingClientRect();
@@ -243,31 +236,86 @@
     }
   }
 
-  /* ---- D-pads ----------------------------------------------------------- */
-  function onDirDown(e) {
-    e.preventDefault();          // no focus ring, no synthetic click, no scroll
+  /* ---- THUMB STICKS -------------------------------------------------------
+     Each painted pad is one round zone. A press anywhere inside it starts a
+     stick; the vector from the pad's centre to the thumb is what the engine
+     reads, so the thumb does not have to land on any particular spot -- it
+     just has to land on the pad. That is the whole point: the old four-tile
+     layout gave a 28px target per direction, and this gives the pad.
+
+     Pointer capture is taken on press so a thumb that slides past the rim
+     keeps steering instead of silently dropping the stick mid-move.         */
+  const stickPointers = new Map();   // pointerId -> { el, kind }
+
+  function stickVector(el, x, y) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return { x: 0, y: 0 };
+    // -1..1 across the pad, measured from its centre
+    return {
+      x: (x - (r.left + r.width  / 2)) / (r.width  / 2),
+      y: (y - (r.top  + r.height / 2)) / (r.height / 2)
+    };
+  }
+
+  function paintNub(el, v) {
+    const nub = el.firstElementChild;
+    if (!nub) return;
+    const m = Math.hypot(v.x, v.y);
+    const k = m > 1 ? 1 / m : 1;      // keep the nub inside the pad
+    /* 34% of travel, which reads as a stick without the nub wandering off the
+       painted pad. The -50% centring is folded into the number rather than
+       written as calc(-50% + Xpct): a negative X there produces "+ -24%",
+       which Chrome quietly accepts and Safari is entitled to throw out --
+       and Safari is the phone browser this has to work on. */
+    nub.style.transform =
+      'translate(' + (-50 + v.x * k * 34) + '%, ' + (-50 + v.y * k * 34) + '%)';
+  }
+
+  function driveStick(el, kind, v) {
+    if (kind === 'walk') game.setWalkVector(v.x, v.y);
+    else                 game.setBubbleStick(v.x, v.y);
+  }
+
+  function onStickDown(e) {
+    e.preventDefault();
     e.stopPropagation();
-    if (dirPointers.has(e.pointerId)) return;
     const el = e.currentTarget;
-    const dir = el.dataset.dir;
-    if (!dir) return;
-    game.startIfWaiting();       // a pad press also clears the start gate
-    dirPointers.set(e.pointerId, { dir: dir, el: el });
-    heldBy[dir].push(e.pointerId);
+    if (el.classList.contains('is-off')) return;
+    if (stickPointers.has(e.pointerId)) return;
+    const kind = el === stickWalk ? 'walk' : 'bubble';
+    game.startIfWaiting();          // a stick press also clears the start gate
+    stickPointers.set(e.pointerId, { el: el, kind: kind });
     el.classList.add('is-down');
-    game.setDirection(dir, true);
+    const v = stickVector(el, e.clientX, e.clientY);
+    paintNub(el, v);
+    driveStick(el, kind, v);
     capture(el, e.pointerId);
   }
 
-  function onDirUp(e) {
-    const rec = dirPointers.get(e.pointerId);
+  function onStickMove(e) {
+    const rec = stickPointers.get(e.pointerId);
     if (!rec) return;
     e.preventDefault();
     e.stopPropagation();
-    dirPointers.delete(e.pointerId);
-    dropFrom(heldBy[rec.dir], e.pointerId);
+    const v = stickVector(rec.el, e.clientX, e.clientY);
+    paintNub(rec.el, v);
+    driveStick(rec.el, rec.kind, v);
+  }
+
+  function onStickUp(e) {
+    const rec = stickPointers.get(e.pointerId);
+    if (!rec) return;
+    e.preventDefault();
+    e.stopPropagation();
+    stickPointers.delete(e.pointerId);
+    releaseStick(rec);
+  }
+
+  function releaseStick(rec) {
     rec.el.classList.remove('is-down');
-    if (heldBy[rec.dir].length === 0) game.setDirection(rec.dir, false);
+    paintNub(rec.el, { x: 0, y: 0 });
+    if (rec.kind === 'walk') game.releaseDirections();
+    else                     game.releaseBubbleStick();
   }
 
   /* ---- MEASURE discs ----------------------------------------------------- */
@@ -299,19 +347,20 @@
   }
 
   function releaseAllTouch() {
-    dirPointers.forEach(function (rec) { rec.el.classList.remove('is-down'); });
-    dirPointers.clear();
-    DIRECTIONS.forEach(function (d) { heldBy[d].length = 0; });
+    stickPointers.forEach(releaseStick);
+    stickPointers.clear();
     measPointers.forEach(function (el) { el.classList.remove('is-down'); });
     measPointers.clear();
     game.releaseDirections();
+    game.releaseBubbleStick();
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.tc-dir'), function (el) {
-    el.addEventListener('pointerdown', onDirDown);
-    el.addEventListener('pointerup', onDirUp);
-    el.addEventListener('pointercancel', onDirUp);
-    el.addEventListener('lostpointercapture', onDirUp);
+  [stickWalk, stickBubble].forEach(function (el) {
+    el.addEventListener('pointerdown', onStickDown);
+    el.addEventListener('pointermove', onStickMove);
+    el.addEventListener('pointerup', onStickUp);
+    el.addEventListener('pointercancel', onStickUp);
+    el.addEventListener('lostpointercapture', onStickUp);
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   });
 
