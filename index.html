@@ -114,25 +114,34 @@
     <!-- ------------------------------------------------------------------ -->
     <!-- TOUCH CONTROLS                                                       -->
     <!-- Real hotspots sitting over the two round pads and the MEASURE discs -->
-    <!-- painted into the frame art. The pads are now two DIFFERENT sticks -- -->
-    <!-- left walks, right levels the bubble -- and both MEASURE discs fire   -->
+    <!-- painted into the frame art. The pads do DIFFERENT jobs: the left is  -->
+    <!-- a four-way D-pad for walking, the right an analog joystick for the   -->
+    <!-- bubble. Both MEASURE discs fire                                      -->
     <!-- the same shot the desktop click fires. Pointer events, so a mouse    -->
     <!-- on desktop uses this identical path -- no touch-only branch.         -->
     <!-- data-nomeasure marks the whole cluster as "do not let the global     -->
     <!-- tap-to-measure handler see taps that started in here".               -->
     <!-- ------------------------------------------------------------------ -->
     <div class="tc" id="touchControls" data-nomeasure>
-      <!-- Two thumb sticks, one per painted pad. Each is a single round zone
-           covering the whole pad rather than four small arrow tiles: the tiles
-           were 28 CSS px on a landscape phone, far under a reliable thumb
-           target, which is why the pads felt unresponsive to touch.
-           LEFT walks (eight-way, so one thumb can still go diagonal).
-           RIGHT levels the bubble — the job the vial used to need a cursor
-           for, and the reason POLE was unplayable on a phone.
-           The .stick-nub inside each one follows the thumb so you can see
-           what the stick thinks you are doing. -->
-      <div class="tc-stick stick-l" id="stickWalk" role="button" tabindex="-1"
-           aria-label="Walk stick"><span class="stick-nub"></span></div>
+      <!-- LEFT pad: a real four-way D-PAD. Discrete up/down/left/right, one
+           direction per thumb, no diagonals and no analog travel -- pressing a
+           direction is the walking play style this game wants.
+
+           The four arrows are laid out as a plus over the painted pad and are
+           deliberately much larger than the originals. The first version of
+           these was 28 CSS px on a landscape phone, well under a dependable
+           thumb target, which is why the pad read as unresponsive; the plus
+           layout below uses the pad's unused diagonal corners to get every
+           arrow past 44px without any of them overlapping. Same buttons, same
+           behaviour, just big enough to hit. -->
+      <button type="button" tabindex="-1" class="tc-hit tc-dir dir-up"    data-dir="up"    aria-label="Walk up"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir dir-left"  data-dir="left"  aria-label="Walk left"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir dir-right" data-dir="right" aria-label="Walk right"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-dir dir-down"  data-dir="down"  aria-label="Walk down"></button>
+
+      <!-- RIGHT pad: the analog joystick that levels the bubble. One round
+           zone covering the whole pad; the nub follows the thumb so you can
+           see what the stick registered. -->
       <div class="tc-stick stick-r" id="stickBubble" role="button" tabindex="-1"
            aria-label="Bubble level stick"><span class="stick-nub"></span></div>
 
@@ -154,7 +163,7 @@
       <div>
         <p class="sg-1">PRESS SPACEBAR</p>
         <p class="sg-2">OR CLICK TO START</p>
-        <p class="sg-3">W A S D <em>or the LEFT STICK</em> to walk &nbsp;&bull;&nbsp; the <em>RIGHT STICK</em>, the arrow keys, or the cursor held on the vial levels the bubble (inverted) &mdash; let go and it runs back out<br />
+        <p class="sg-3">W A S D <em>or the LEFT D-PAD</em> to walk &nbsp;&bull;&nbsp; the <em>RIGHT JOYSTICK</em>, the arrow keys, or the cursor held on the vial levels the bubble (inverted) &mdash; let go and it runs back out<br />
            Only the <em>boldly framed</em> panel is live &nbsp;&bull;&nbsp; BIPOD hands control back and forth; POLE keeps both live at once<br />
            MEASURE unlocks when both panels go live &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
       </div>

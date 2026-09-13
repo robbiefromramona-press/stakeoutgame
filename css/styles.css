@@ -586,21 +586,44 @@ html.is-playing, html.is-playing body {
   box-shadow: inset 0 0 1.6cqw rgba(255,216,61,.55);
 }
 
-/* --- THUMB STICKS --------------------------------------------------------
-   One round zone per painted pad, replacing the four 28px arrow tiles each
-   pad used to carry. 28px is well under a dependable thumb target, which is
-   why the pads read as unresponsive on a phone; a whole-pad zone is roughly
-   three times the width and lands every time.
+/* --- LEFT PAD: four-way D-pad --------------------------------------------
+   Discrete up/down/left/right walking -- press a direction, get exactly that
+   direction. No analog travel and no diagonals.
 
-   Geometry: the old 3x3 tile grids spanned x[0.586,14.908] (left) and
-   x[85.059,99.381] (right), y[35.645,57.129]. These are grown a little into
-   the dead bezel either side -- stopping clear of the POINT POSITION panel at
-   17.12%, the BUBBLE panel at 82.88%, and the MEASURE discs at 59.08% -- so
-   the zone covers the painted pad with a margin rather than sitting inside it.
+   All four arrows occupy the SAME box, the painted pad at x[0,17%] y[30%,59%]
+   -- grown into the dead bezel on the left, stopping clear of the POINT
+   POSITION panel at 17.12% and the MEASURE disc at 59.08%. Each is then
+   clipped to one triangular quarter of it, meeting at the centre.
 
-   LEFT drives walking, RIGHT drives the bubble. They are divs, not buttons:
-   a stick is dragged, not clicked, and a button would fire a synthetic click
-   on release that the stage's tap-to-measure handler would see. */
+   Wedges rather than a plus of rectangles, because the pad is only about
+   99x113px on a landscape phone and four non-overlapping rectangles cannot
+   all clear a 44px thumb target inside it -- there simply is not room. Four
+   wedges tile the same box with no gaps and no overlap, so every pixel of the
+   pad belongs to exactly one direction and the effective target for each is
+   roughly the full width of the pad. That also removes the corner ambiguity
+   overlapping rectangles have, where which direction wins a corner press
+   depends on DOM order rather than on where the thumb actually is.
+
+   clip-path clips hit-testing, not just paint, which is what makes this work.
+   The originals were 28px tiles, which is why the pad read as unresponsive. */
+.tc-dir {
+  left: 0%; top: 30.0%;
+  width: 17.0%; height: 29.0%;
+  border-radius: 0;
+}
+.dir-up    { clip-path: polygon(50% 50%,   0%   0%, 100%   0%); }
+.dir-right { clip-path: polygon(50% 50%, 100%   0%, 100% 100%); }
+.dir-down  { clip-path: polygon(50% 50%, 100% 100%,   0% 100%); }
+.dir-left  { clip-path: polygon(50% 50%,   0% 100%,   0%   0%); }
+
+/* --- RIGHT PAD: the bubble joystick --------------------------------------
+   One round zone covering the whole painted pad, about three times the width
+   of a single old arrow tile. Analog: where the thumb sits in the zone is the
+   rod tilt, which is what lets you chase a tight tolerance with a thumb.
+
+   A div rather than a button on purpose: a stick is dragged, not clicked, and
+   a button would fire a synthetic click on release that the stage's
+   tap-to-measure handler would see as a shot. */
 .tc-stick {
   position: absolute;
   pointer-events: auto;
@@ -612,7 +635,6 @@ html.is-playing, html.is-playing body {
   cursor: pointer;
   transition: background-color .1s linear;
 }
-.stick-l { left:  0%; }
 .stick-r { left: 83.5%; }
 
 /* the nub: shows where the stick thinks your thumb is. Parked dead centre and
@@ -629,15 +651,16 @@ html.is-playing, html.is-playing body {
   transition: opacity .1s linear;
 }
 .tc-stick.is-down .stick-nub { opacity: 1; }
-.stick-l .stick-nub { background: radial-gradient(circle at 38% 34%, #fff8d0 12%, #f5c518 60%, #8a6f0a 100%); }
 .stick-r .stick-nub { background: radial-gradient(circle at 38% 34%, #dfffd0 12%, #22d422 60%, #0d6b0d 100%); }
 
 .tc-stick.is-down { background-color: rgba(255,255,255,.07); }
 
-/* dead whenever the panel it drives is not live. The pads are painted into
-   the artwork and cannot be hidden, so this just removes the pressable feel. */
+/* Both controls go dead with the panel they drive: the D-pad with the position
+   dial, the joystick with the vial. The pads are painted into the artwork and
+   cannot be hidden, so this only removes the pressable feel. */
 .tc-stick.is-off { cursor: default; background-color: rgba(0,0,0,.34); }
 .tc-stick.is-off .stick-nub { opacity: 0; }
+.tc-dir[disabled] { cursor: default; background-color: rgba(0,0,0,.34); }
 
 /* --- MEASURE discs ------------------------------------------------------- */
 .tc-measure {

@@ -501,53 +501,29 @@ const StakeOut = (function () {
       keys['w'] = false; keys['a'] = false; keys['s'] = false; keys['d'] = false;
     }
 
-    /* ---- V11.2: the two thumb sticks ---------------------------------------
-       The instrument art has a round pad on each side. Until now both were
-       four separate 28px arrow hotspots driving the SAME four walk directions,
-       which is two problems at once on a phone: 28px is far under a reliable
-       thumb target, and the right pad duplicated the left instead of doing a
-       job of its own. So the bubble had no thumb control at all and POLE --
-       which needs you to walk and level simultaneously -- was unplayable,
-       because levelling meant parking a thumb on the vial.
+    /* ---- V11.2: the right-hand bubble joystick ------------------------------
+       The instrument art has a round pad on each side. The LEFT one is a
+       four-way D-pad driving WASD, unchanged in behaviour and only enlarged so
+       a thumb can hit it. The RIGHT one used to duplicate it, which left the
+       bubble with no thumb control at all and made POLE -- which needs walking
+       and levelling at once -- unplayable on a phone, because levelling meant
+       parking a thumb on the vial itself.
 
-       Now each pad is one round zone the size of the whole painted pad, and
-       they do different jobs: LEFT walks, RIGHT levels the bubble.
-
-       Both take a direction vector from where the thumb sits relative to the
-       pad centre, so neither reimplements any rule -- the walk stick writes
-       into the same `keys` map WASD writes into, and the bubble stick writes
-       the same bubbleTarget the vial and the arrow keys write. */
-    const STICK_DEADZONE = 0.28;   // fraction of pad radius before it registers
-
-    function clampToUnit(nx, ny) {
-      const m = Math.hypot(nx, ny);
-      return m > 1 ? { x: nx / m, y: ny / m } : { x: nx, y: ny };
-    }
-
-    /* LEFT stick -> walking. Eight-way rather than four: the old layout could
-       manage a diagonal by putting one thumb on each pad, and reassigning the
-       right pad would have quietly taken that away. Reading both axes past the
-       dead zone gives diagonals back from a single thumb. */
-    function setWalkVector(nx, ny) {
-      if (!active || !posPanelLive()) { releaseDirections(); return; }
-      const v = clampToUnit(nx, ny);
-      keys['w'] = v.y < -STICK_DEADZONE;
-      keys['s'] = v.y >  STICK_DEADZONE;
-      keys['a'] = v.x < -STICK_DEADZONE;
-      keys['d'] = v.x >  STICK_DEADZONE;
-    }
-
-    /* RIGHT stick -> the bubble. Inverted, exactly like the vial and the arrow
-       keys: push the stick right and the bubble runs left, because you are
-       tilting the rod, not dragging the bubble. Position maps straight to
-       tilt, so a small push is a small tilt -- that is what makes it precise
-       enough to chase a 3% tolerance with a thumb. */
+       So the right pad is now an analog joystick for the bubble. It does not
+       reimplement anything: it writes the same bubbleTarget the vial and the
+       arrow keys write. Inverted, exactly like both of those -- push the stick
+       right and the bubble runs left, because you are tilting the rod, not
+       dragging the bubble. Position maps straight to tilt, so a small push is
+       a small tilt, which is what makes it precise enough to chase a tight
+       tolerance with a thumb. */
     function setBubbleStick(nx, ny) {
       if (!active || !bubbleActive) { stickHeld = false; return; }
       stickHeld = true;
-      const v = clampToUnit(nx, ny);
-      bubbleTarget.x = -v.x;
-      bubbleTarget.y = -v.y;
+      let x = nx, y = ny;
+      const m = Math.hypot(x, y);
+      if (m > 1) { x /= m; y /= m; }   // clamp to the pad, no over-travel
+      bubbleTarget.x = -x;
+      bubbleTarget.y = -y;
     }
 
     function releaseBubbleStick() { stickHeld = false; }
@@ -1006,7 +982,6 @@ const StakeOut = (function () {
       handleClick: handleClick,
       setDirection: setDirection,
       releaseDirections: releaseDirections,
-      setWalkVector: setWalkVector,
       setBubbleStick: setBubbleStick,
       releaseBubbleStick: releaseBubbleStick,
       startIfWaiting: startIfWaiting,

@@ -121,8 +121,8 @@
   const posDim = [$('posCanvas'), $('roLeft').parentNode, $('roTo').parentNode];
   const bubDim = [$('bubbleCanvas')];
   const measureBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-measure'));
-  const stickWalk = $('stickWalk');     // LEFT pad  -> walking
-  const stickBubble = $('stickBubble'); // RIGHT pad -> bubble level
+  const dirBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-dir'));
+  const stickBubble = $('stickBubble'); // RIGHT pad -> bubble joystick
 
   const game = StakeOut.create({
     posCanvas: $('posCanvas'),
@@ -173,16 +173,17 @@
         if (!s.measureEnabled) el.classList.remove('is-down');
       });
 
-      /* Each stick follows the panel it drives: the walk stick dies with the
-         position dial, the bubble stick with the vial. The engine refuses
-         input from a dead stick anyway; marking it here means a thumb on one
-         also stops LOOKING like it did something, which is the difference
-         between "ignored" and "obviously not your turn". */
-      [[stickWalk, s.posActive], [stickBubble, s.bubActive]].forEach(function (pair) {
-        const el = pair[0], live = pair[1];
-        el.classList.toggle('is-off', !live);
-        if (!live) el.classList.remove('is-down');
+      /* Each control follows the panel it drives: the D-pad dies with the
+         position dial, the joystick with the vial. The engine refuses input
+         from a dead control anyway; marking it here means a thumb on one also
+         stops LOOKING like it did something, which is the difference between
+         "ignored" and "obviously not your turn". */
+      dirBtns.forEach(function (el) {
+        el.disabled = !s.posActive;
+        if (!s.posActive) el.classList.remove('is-down');
       });
+      stickBubble.classList.toggle('is-off', !s.bubActive);
+      if (!s.bubActive) stickBubble.classList.remove('is-down');
     },
 
     onStartGate: function (show) {
@@ -236,16 +237,56 @@
     }
   }
 
-  /* ---- THUMB STICKS -------------------------------------------------------
-     Each painted pad is one round zone. A press anywhere inside it starts a
-     stick; the vector from the pad's centre to the thumb is what the engine
-     reads, so the thumb does not have to land on any particular spot -- it
-     just has to land on the pad. That is the whole point: the old four-tile
-     layout gave a 28px target per direction, and this gives the pad.
+  /* ---- LEFT PAD: four-way D-pad -------------------------------------------
+     Discrete directions, one per press. Pointer capture is taken on press so a
+     thumb that slides off the arrow still reports its release rather than
+     leaving the direction stuck on.
+
+     Two pointers can hold the same direction at once (two fingers, or a finger
+     and a mouse), so each direction counts its holders and only releases the
+     key when the last one lifts. */
+  const heldBy = { up: [], down: [], left: [], right: [] };
+  const dirPointers = new Map();     // pointerId -> { dir, el }
+
+  function dropFrom(list, id) {
+    const i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1);
+  }
+
+  function onDirDown(e) {
+    e.preventDefault();          // no focus ring, no synthetic click, no scroll
+    e.stopPropagation();
+    if (dirPointers.has(e.pointerId)) return;
+    const el = e.currentTarget;
+    const dir = el.dataset.dir;
+    if (!dir) return;
+    game.startIfWaiting();       // a pad press also clears the start gate
+    dirPointers.set(e.pointerId, { dir: dir, el: el });
+    heldBy[dir].push(e.pointerId);
+    el.classList.add('is-down');
+    game.setDirection(dir, true);
+    capture(el, e.pointerId);
+  }
+
+  function onDirUp(e) {
+    const rec = dirPointers.get(e.pointerId);
+    if (!rec) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dirPointers.delete(e.pointerId);
+    dropFrom(heldBy[rec.dir], e.pointerId);
+    rec.el.classList.remove('is-down');
+    if (heldBy[rec.dir].length === 0) game.setDirection(rec.dir, false);
+  }
+
+  /* ---- RIGHT PAD: the bubble joystick --------------------------------------
+     One round zone. A press anywhere inside it starts the stick; the vector
+     from the pad's centre to the thumb is what the engine reads, so the thumb
+     only has to land on the pad, not on any particular spot.
 
      Pointer capture is taken on press so a thumb that slides past the rim
      keeps steering instead of silently dropping the stick mid-move.         */
-  const stickPointers = new Map();   // pointerId -> { el, kind }
+  const stickPointers = new Map();   // pointerId -> { el }
 
   function stickVector(el, x, y) {
     const r = el.getBoundingClientRect();
@@ -271,24 +312,18 @@
       'translate(' + (-50 + v.x * k * 34) + '%, ' + (-50 + v.y * k * 34) + '%)';
   }
 
-  function driveStick(el, kind, v) {
-    if (kind === 'walk') game.setWalkVector(v.x, v.y);
-    else                 game.setBubbleStick(v.x, v.y);
-  }
-
   function onStickDown(e) {
     e.preventDefault();
     e.stopPropagation();
     const el = e.currentTarget;
     if (el.classList.contains('is-off')) return;
     if (stickPointers.has(e.pointerId)) return;
-    const kind = el === stickWalk ? 'walk' : 'bubble';
     game.startIfWaiting();          // a stick press also clears the start gate
-    stickPointers.set(e.pointerId, { el: el, kind: kind });
+    stickPointers.set(e.pointerId, { el: el });
     el.classList.add('is-down');
     const v = stickVector(el, e.clientX, e.clientY);
     paintNub(el, v);
-    driveStick(el, kind, v);
+    game.setBubbleStick(v.x, v.y);
     capture(el, e.pointerId);
   }
 
@@ -299,7 +334,7 @@
     e.stopPropagation();
     const v = stickVector(rec.el, e.clientX, e.clientY);
     paintNub(rec.el, v);
-    driveStick(rec.el, rec.kind, v);
+    game.setBubbleStick(v.x, v.y);
   }
 
   function onStickUp(e) {
@@ -314,8 +349,7 @@
   function releaseStick(rec) {
     rec.el.classList.remove('is-down');
     paintNub(rec.el, { x: 0, y: 0 });
-    if (rec.kind === 'walk') game.releaseDirections();
-    else                     game.releaseBubbleStick();
+    game.releaseBubbleStick();
   }
 
   /* ---- MEASURE discs ----------------------------------------------------- */
@@ -347,6 +381,9 @@
   }
 
   function releaseAllTouch() {
+    dirPointers.forEach(function (rec) { rec.el.classList.remove('is-down'); });
+    dirPointers.clear();
+    Object.keys(heldBy).forEach(function (d) { heldBy[d].length = 0; });
     stickPointers.forEach(releaseStick);
     stickPointers.clear();
     measPointers.forEach(function (el) { el.classList.remove('is-down'); });
@@ -355,14 +392,20 @@
     game.releaseBubbleStick();
   }
 
-  [stickWalk, stickBubble].forEach(function (el) {
-    el.addEventListener('pointerdown', onStickDown);
-    el.addEventListener('pointermove', onStickMove);
-    el.addEventListener('pointerup', onStickUp);
-    el.addEventListener('pointercancel', onStickUp);
-    el.addEventListener('lostpointercapture', onStickUp);
+  dirBtns.forEach(function (el) {
+    el.addEventListener('pointerdown', onDirDown);
+    el.addEventListener('pointerup', onDirUp);
+    el.addEventListener('pointercancel', onDirUp);
+    el.addEventListener('lostpointercapture', onDirUp);
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   });
+
+  stickBubble.addEventListener('pointerdown', onStickDown);
+  stickBubble.addEventListener('pointermove', onStickMove);
+  stickBubble.addEventListener('pointerup', onStickUp);
+  stickBubble.addEventListener('pointercancel', onStickUp);
+  stickBubble.addEventListener('lostpointercapture', onStickUp);
+  stickBubble.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   Array.prototype.forEach.call(document.querySelectorAll('.tc-measure'), function (el) {
     el.addEventListener('pointerdown', onMeasureDown);

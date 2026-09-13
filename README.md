@@ -119,9 +119,9 @@ is not the same as earning the point.
 
 | Input | Does |
 |---|---|
-| **LEFT thumb stick** | Walk, eight-way. Live only while POINT POSITION is |
-| **RIGHT thumb stick** | Levels the bubble (inverted). Live only while BUBBLE LEVEL is |
-| `W` `A` `S` `D` | Walk — the keyboard equivalent of the left stick |
+| **LEFT D-pad** | Walk. Discrete up/down/left/right, one direction at a time. Live only while POINT POSITION is |
+| **RIGHT joystick** | Levels the bubble (inverted). Live only while BUBBLE LEVEL is |
+| `W` `A` `S` `D` | Walk — the keyboard equivalent of the left D-pad |
 | Cursor **held on** the bubble vial | Levels the bubble. Take it off and the bubble runs home |
 | Arrow keys | Nudge the bubble target, as another alternative |
 | `Space` / click | Open the start gate |
@@ -133,10 +133,16 @@ is not the same as earning the point.
 Play in **landscape**; portrait shows a ROTATE TO PLAY nudge and leaves the
 vial too small to work with.
 
-The two round pads painted into the instrument are the sticks, and they do
-**different jobs** — left walks, right levels. That split is what makes POLE
-playable on a phone at all: POLE needs you to walk and level at the same time,
-which is impossible when levelling means parking a thumb on the vial itself.
+The two round pads painted into the instrument do **different jobs** — the
+left is a four-way D-pad for walking, the right an analog joystick for the
+bubble. That split is what makes POLE playable on a phone at all: POLE needs
+you to walk and level at the same time, which is impossible when levelling
+means parking a thumb on the vial itself.
+
+The left pad is deliberately a **D-pad and not a stick** — discrete presses,
+one direction at a time, no analog travel and no diagonals. Walking wants
+that play style. Only the right pad is analog, because levelling wants fine
+proportional control.
 
 Three things had to be true before touch worked, and all three are load-bearing:
 
@@ -153,9 +159,19 @@ Three things had to be true before touch worked, and all three are load-bearing:
    so no drag can pan it, rubber-band it, or retract the address bar and shift
    the gauges mid-shot.
 
-Each stick is one round zone covering its whole painted pad — about 97px on a
-landscape phone. The previous layout gave each of four arrow tiles 28px, well
-under a dependable thumb target, which is why the pads read as unresponsive.
+**Target sizes.** The original arrows were 28px tiles on a landscape phone,
+well under a dependable thumb target, which is why the pad read as
+unresponsive. The right joystick is now one round zone covering its whole pad
+(~97px). The left D-pad's four arrows are each clipped to one triangular
+quarter of its pad (~99x113px), so they tile it with no gaps and no overlap
+and each direction's target is roughly the full width of the pad.
+
+Wedges rather than a plus of rectangles because four non-overlapping
+rectangles cannot all clear 44px inside a pad that size — there is not room.
+Wedges also remove the corner ambiguity overlapping rectangles have, where
+which direction wins a corner press depends on DOM order rather than on where
+the thumb is. `clip-path` clips hit-testing, not just paint, which is what
+makes it work.
 
 ---
 
