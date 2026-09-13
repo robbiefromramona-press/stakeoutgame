@@ -242,7 +242,92 @@ body {
 
 .gauge { position: absolute; display: block; }
 .pos-gauge { left: 21.32%; top: 30.71%; width: 25.59%; height: 38.38%; }
-.bub-gauge { left: 52.67%; top: 29.59%; width: 27.08%; height: 40.63%; }
+.bub-gauge {
+  left: 52.67%; top: 29.59%; width: 27.08%; height: 40.63%;
+  /* The vial is a drag surface, so the browser must not treat a finger on it
+     as a page pan. Without this a touch drag gets claimed as a scroll gesture,
+     the browser fires pointercancel at us mid-drag, and the engine reads that
+     as "let go" and sends the bubble home -- i.e. the bubble is unsteerable by
+     touch. Only became relevant in V11, when steering moved from mousemove to
+     pointer events and touch started working at all. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================================================
+   V11 — ACTIVE / IDLE PANELS
+   --------------------------------------------------------------------------
+   Each data-collector panel tells you whether it is the one you may touch:
+   thin border while idle, bold while active. POINT POSITION is yellow,
+   BUBBLE LEVEL is green.
+
+   These sit exactly on top of the two panel outlines painted into
+   with_measure_and_clock.png rather than anywhere else, because that outline
+   IS the panel's border and drawing a second one inside it cut straight
+   through the panel titles and the LEFT/RIGHT and TO/AWAY readout boxes.
+
+   The geometry below was measured off the artwork pixel by pixel. The art is
+   1536x1024 and the painted outlines are an 8px line at:
+
+       POINT POSITION   x 265..768    y 257..793
+       BUBBLE LEVEL     x 776..1273   y 257..793
+
+   The boxes are set 2px outside those, and the border is drawn thick enough
+   to cover the painted line completely -- it has to, because the painted one
+   is yellow on BOTH panels and the right-hand panel now has to read green.
+
+   Clearances the widths below are chosen to respect: the panel titles start
+   22px inside the top edge, and the readout boxes end 21px above the bottom
+   edge, so even the bold border stops short of both.
+
+   The frame is its own element, never a border on the canvas: a border on a
+   canvas is drawn inside its box under the global border-box rule, which
+   would shrink the bitmap and squash the gauge. pointer-events is off, so
+   tap-to-measure and the bubble's own pointer tracking reach straight
+   through it.
+
+   Greying out is deliberately BOTH halves of the job: .is-dim below is the
+   visual half, and the engine's activePanel is the functional half. Neither
+   alone is enough -- a panel that only looks dead but still answers to input
+   is exactly the bug this replaces.
+   ========================================================================== */
+.panel-frame {
+  position: absolute;
+  pointer-events: none;            /* never intercepts a tap or the bubble drag */
+  border-style: solid;
+  border-radius: .85cqw;           /* matches the painted corner chamfer */
+  transition: border-width .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+/* left:263 top:255 w:507 h:540  — the painted outline, 2px proud on every side */
+.frame-pos { left: 17.1224%; top: 24.9023%; width: 33.0078%; height: 52.7344%; }
+/* left:774 top:255 w:501 h:540 */
+.frame-bub { left: 50.3906%; top: 24.9023%; width: 32.6172%; height: 52.7344%; }
+
+/* idle: ~12px, just enough to hide the painted line underneath */
+.panel-frame.is-idle   { border-width: .78cqw; box-shadow: none; }
+/* active: ~19px, plus a soft halo so it reads at a glance */
+.panel-frame.is-active { border-width: 1.25cqw; }
+
+/* The idle colours are deliberately OPAQUE dark shades rather than the bright
+   colour at low alpha. A translucent border would let the painted yellow
+   outline underneath show through, which on the bubble panel blends to a
+   muddy yellow-green instead of reading as a dim green. */
+.frame-pos.is-idle   { border-color: #6d5712; }   /* yellow, turned right down */
+.frame-pos.is-active { border-color: var(--yellow);
+                       box-shadow: 0 0 1.5cqw rgba(245, 197, 24, .5); }
+
+.frame-bub.is-idle   { border-color: #14611a; }   /* green, turned right down */
+.frame-bub.is-active { border-color: var(--green);
+                       box-shadow: 0 0 1.5cqw rgba(34, 212, 34, .45); }
+
+/* The visual half of "greyed out": drained of colour and darkened.
+   Deliberately a filter and NOT opacity. These elements are the opaque
+   blackout layer that hides the gauges and readout boxes baked into
+   with_measure_and_clock.png -- turn them translucent and the painted
+   artwork underneath shows through, which looks like a rendering fault
+   rather than a dead panel. A filter leaves them fully opaque. */
+.gauge, .readout { transition: filter .12s ease; }
+.gauge.is-dim, .readout.is-dim { filter: grayscale(1) brightness(.45); }
 
 /* numeric readouts over the two boxes at the foot of the left panel */
 .readout {
@@ -482,6 +567,11 @@ body {
 .pad-r.col-2 { left: 89.833%; }
 .pad-r.col-3 { left: 94.607%; }
 
+/* V11: pads go dead whenever the position dial is not one of the live panels.
+   Kept subtle -- the arrows are painted into the artwork and cannot be hidden,
+   so this just takes away the pressable feel. */
+.tc-dir[disabled] { cursor: default; background-color: rgba(0,0,0,.34); }
+
 /* --- MEASURE discs ------------------------------------------------------- */
 .tc-measure {
   top: 59.082%; width: 8.138%; height: 12.207%;
@@ -492,6 +582,31 @@ body {
 .tc-measure.is-down {
   background-color: rgba(245,197,24,.34);
   box-shadow: 0 0 2.2cqw rgba(255,216,61,.8), inset 0 0 1.8cqw rgba(255,216,61,.5);
+}
+
+/* V11: the discs are locked out until the engine says MEASURE is live. The
+   `disabled` attribute is what actually stops the press -- a disabled button
+   fires no pointer events at all -- and this is only how that reads on screen:
+   a dark cap over the painted disc so it is obviously not pressable yet. */
+.tc-measure[disabled] {
+  cursor: default;
+  background-color: rgba(0,0,0,.52);
+  box-shadow: inset 0 0 1.4cqw rgba(0,0,0,.6);
+}
+/* and the opposite: a slow pulse the moment it unlocks, because in BIPOD that
+   is the whole payoff of the read/walk/level loop and it should be impossible
+   to miss */
+.tc-measure.is-armed {
+  background-color: rgba(34,212,34,.16);
+  box-shadow: 0 0 1.8cqw rgba(34,212,34,.55);
+  animation: measArm 1.5s ease-in-out infinite;
+}
+@keyframes measArm {
+  0%, 100% { box-shadow: 0 0 1.1cqw rgba(34,212,34,.38); }
+  50%      { box-shadow: 0 0 2.6cqw rgba(34,212,34,.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tc-measure.is-armed { animation: none; }
 }
 
 /* ==========================================================================

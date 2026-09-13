@@ -70,15 +70,28 @@
       <span class="hud-y">OF</span> <span class="hud-w" id="hudTotal">3</span>
     </div>
 
-    <!-- left panel: point position (hidden) -->
+    <!-- ------------------------------------------------------------------ -->
+    <!-- THE TWO DATA-COLLECTOR PANELS, SIDE BY SIDE                         -->
+    <!-- Each is a fill (blacks out the baked artwork), a live canvas, and a  -->
+    <!-- frame. The frame lies exactly over the panel outline painted into    -->
+    <!-- the artwork and re-colours it: yellow for POINT POSITION, green for  -->
+    <!-- BUBBLE LEVEL, thin while idle and bold while that panel is the one   -->
+    <!-- the player may touch. See .panel-frame in styles.css for the pixel   -->
+    <!-- measurements. app.js drives .is-active / .is-idle here and .is-dim   -->
+    <!-- on the panel contents, both from the engine's onPanelState.          -->
+    <!-- ------------------------------------------------------------------ -->
+
+    <!-- left panel: point position — YELLOW frame -->
     <div class="panel-fill pos-fill" aria-hidden="true"></div>
     <canvas id="posCanvas" class="gauge pos-gauge" width="856" height="856"
             aria-label="Point position gauge"></canvas>
+    <div class="panel-frame frame-pos is-idle" id="framePos" aria-hidden="true"></div>
 
-    <!-- right panel: bubble level -->
+    <!-- right panel: bubble level — GREEN frame -->
     <div class="panel-fill bub-fill" aria-hidden="true"></div>
     <canvas id="bubbleCanvas" class="gauge bub-gauge" width="860" height="860"
             aria-label="Bubble level gauge"></canvas>
+    <div class="panel-frame frame-bub is-idle" id="frameBub" aria-hidden="true"></div>
 
     <!-- numeric readouts, over the two boxes at the foot of the left panel -->
     <div class="readout ro-1">
@@ -113,8 +126,8 @@
       <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-3 row-2" data-dir="right" aria-label="Walk right (right pad)"></button>
       <button type="button" tabindex="-1" class="tc-hit tc-dir pad-r col-2 row-3" data-dir="down"  aria-label="Walk down (right pad)"></button>
 
-      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-l" aria-label="Measure"></button>
-      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-r" aria-label="Measure"></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-l" aria-label="Measure" disabled></button>
+      <button type="button" tabindex="-1" class="tc-hit tc-measure meas-r" aria-label="Measure" disabled></button>
     </div>
 
     <!-- TIMESTAMP: the level stopwatch, over the LCD housing in the art.
@@ -131,8 +144,9 @@
       <div>
         <p class="sg-1">PRESS SPACEBAR</p>
         <p class="sg-2">OR CLICK TO START</p>
-        <p class="sg-3">W A S D <em>or either D-PAD</em> to walk &nbsp;&bull;&nbsp; MOUSE over the vial levels the bubble (inverted)<br />
-           LEFT-CLICK the panels <em>or either MEASURE button</em> to measure &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
+        <p class="sg-3">W A S D <em>or either D-PAD</em> to walk &nbsp;&bull;&nbsp; HOLD the cursor on the vial to level the bubble (inverted) &mdash; let go and it runs back out<br />
+           Only the <em>boldly framed</em> panel is live &nbsp;&bull;&nbsp; BIPOD hands control back and forth; POLE keeps both live at once<br />
+           MEASURE unlocks when both panels go live &nbsp;&bull;&nbsp; ESC to abort back to the menu</p>
       </div>
     </div>
   </div>

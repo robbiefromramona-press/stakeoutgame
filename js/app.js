@@ -1,5 +1,5 @@
 /* ==========================================================================
-   STAKE-OUT V9 — application shell
+   STAKE-OUT V11 — application shell
    Screen routing, menu state, live HUD binding, field-report rendering and
    the two exports. All gameplay lives in game-engine.js.
    ========================================================================== */
@@ -104,6 +104,20 @@
   const startGate = $('startGate');
   const shotMsg = $('shotMsg');
 
+  /* V11 panel chrome. The two frames carry the coloured borders, and the
+     *Dim lists are everything that has to grey out with its panel: the gauge
+     canvas plus, for the position panel, the two numeric readout boxes, which
+     belong to that dial and would otherwise stay bright while the dial they
+     describe is dead. The black .panel-fill layers are left alone on purpose
+     -- they are the blackout that hides the artwork's painted gauges, and
+     they are already black, so there is nothing to grey. */
+  const framePos = $('framePos');
+  const frameBub = $('frameBub');
+  const posDim = [$('posCanvas'), $('roLeft').parentNode, $('roTo').parentNode];
+  const bubDim = [$('bubbleCanvas')];
+  const measureBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-measure'));
+  const dirBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-dir'));
+
   const game = StakeOut.create({
     posCanvas: $('posCanvas'),
     bubbleCanvas: $('bubbleCanvas'),
@@ -126,6 +140,43 @@
       shotMsg.classList.toggle('is-on', !!text);
       shotMsg.classList.toggle('pass', pass === true);
       shotMsg.classList.toggle('fail', pass === false);
+    },
+
+    /* V11: the engine says which gauge is live; this paints it.
+       Three things move together, and all three matter:
+         - the frame goes bold on the live panel and thin on the idle one
+         - the idle panel is dimmed and desaturated
+         - the MEASURE discs take the `disabled` attribute when the engine
+           says measuring is not allowed yet, which is what actually stops
+           the press -- the dark cap in the CSS is only how that looks.
+       Disabling here is belt to the engine's braces: handleClick() refuses a
+       shot on its own too, so a stray click anywhere on the stage cannot log
+       a point early either. */
+    onPanelState: function (s) {
+      framePos.classList.toggle('is-active', s.posActive);
+      framePos.classList.toggle('is-idle', !s.posActive);
+      frameBub.classList.toggle('is-active', s.bubActive);
+      frameBub.classList.toggle('is-idle', !s.bubActive);
+
+      posDim.forEach(function (el) { el.classList.toggle('is-dim', !s.posActive); });
+      bubDim.forEach(function (el) { el.classList.toggle('is-dim', !s.bubActive); });
+
+      measureBtns.forEach(function (el) {
+        el.disabled = !s.measureEnabled;
+        el.classList.toggle('is-armed', s.measureEnabled);
+        if (!s.measureEnabled) el.classList.remove('is-down');
+      });
+
+      /* The D-pads drive the position dial, so they go dead with it. The
+         engine refuses their input anyway; disabling the buttons means a
+         press on a dead pad also stops LOOKING like it did something, which
+         is the difference between "ignored" and "obviously not your turn".
+         Safe to flip here: BIPOD only hands control away on the frame the
+         last direction is released, so no pad is ever held when this runs. */
+      dirBtns.forEach(function (el) {
+        el.disabled = !s.posActive;
+        if (!s.posActive) el.classList.remove('is-down');
+      });
     },
 
     onStartGate: function (show) {
@@ -576,7 +627,7 @@
 '  <p class="ft">' + esc(LEVELS[round.level].name) + '  &bull;  MODE: ' + round.mode.toUpperCase() +
    '  &bull;  POSITION TOLERANCE ±' + LEVELS[round.level].posToleranceFt.toFixed(3) + ' ft' +
    '  &bull;  BUBBLE TOLERANCE ' + LEVELS[round.level].bubbleTolerancePct + '%' +
-   '  &bull;  STAKE-OUT V9 — TotalStationTech.com</p>\n' +
+   '  &bull;  STAKE-OUT V11 — TotalStationTech.com</p>\n' +
 '</div></body></html>\n';
   }
 
@@ -662,6 +713,7 @@
 
   // exposed for manual testing in the console / headless checks
   window.StakeOutApp = {
+    game: game,                    // V11 state getters: activePanel, measureEnabled, bubbleHeld, onLine
     showScreen: showScreen,
     launch: launch,
     renderReport: renderReport,

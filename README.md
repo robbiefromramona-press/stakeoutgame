@@ -1,13 +1,19 @@
-# STAKE-OUT — V8
+# STAKE-OUT — V11
 
 A browser-based total-station staking simulator for
 **[TotalStationTech.com](https://totalstationtech.com)**.
 
 You hunt a hidden point with **WASD**, level a pendulum bubble with the
-**mouse**, and left-click to measure. Land inside the level's position *and*
-bubble tolerance and the point is staked; miss and it's logged as a fail
-anyway — same as real life. Four levels tighten the tolerance from ±0.300 ft
-down to ±0.020 ft, and two instrument modes change how the rig behaves.
+**mouse**, and measure once the instrument lets you. Land inside the level's
+position *and* bubble tolerance and the point is staked; miss and it's logged
+as a fail anyway — same as real life. Four levels tighten the tolerance from
+±0.300 ft down to ±0.020 ft, and two instrument modes change how the rig
+behaves.
+
+The two panels are **data collectors that take turns**. Only one is live at a
+time in BIPOD, and the live one is the one with the bold coloured border —
+yellow for POINT POSITION, green for BUBBLE LEVEL. The other is greyed out and
+genuinely dead: no clicks, no keys, no bubble response.
 
 Vanilla HTML/CSS/JS. No framework, no build step, no dependencies — same
 conventions as CoordX and QR Point.
@@ -46,37 +52,78 @@ directly off the PNGs.
 
 ## Game modes
 
-**BIPOD** — walking locks the bubble and hides your reading. Stop, level the
-bubble, and the moment it's inside tolerance a fresh reading appears and the
-bubble re-locks. Read, walk, level, repeat. The position never drifts on its
-own.
+**BIPOD** — a hand-off loop, one panel at a time.
 
-**POLE** — the bubble is always live, but the moment you stop walking the pole
-starts to wander. Drift accelerates the longer you stand still, capped at
-0.200 ft per idle session; tap any key to stop it dead.
+1. POINT POSITION is live, BUBBLE LEVEL is dark. Read the dial.
+2. Hold a direction to walk, then **let go**.
+3. On release control jumps straight to the bubble — no delay, that is the
+   one step the lag does not apply to.
+4. Get the bubble inside the **10% hand-off gate** (the white dashed ring).
+5. Control jumps back to the dial, and the fresh reading takes
+   `readoutLagSec` to appear. That wait is the point: it is the round trip
+   out to the prism and back.
+6. Repeat until LEFT/RIGHT *and* TO/AWAY are both inside the level's foot
+   tolerance.
+7. Then **both** panels go live at once, both MEASURE discs unlock, and the
+   bubble switches to HOLD — it stays exactly where you left it instead of
+   running away, so you can take your hand off and shoot.
+
+The position never drifts on its own in BIPOD — a real bipod just holds it.
+
+**POLE** — both panels live from the first frame, MEASURE available
+throughout, and no hand-off at all. You have to walk the point in *and* keep
+the bubble levelled at the same time. The moment you stop walking the pole
+starts to wander; drift accelerates the longer you stand still, capped at
+0.200 ft per idle session. Tap any key to stop it dead.
 
 The bubble is **inverted**, like a real vial: move the mouse right and the
 bubble runs left. It's a spring-damper pendulum, so it swings past centre and
-oscillates before it settles.
+oscillates before it settles — see the tuning note further down if you want it
+calmer.
+
+It also has a **home**. Every point spawns it at a random angle hard against
+the rim, and unless HOLD is on, that home is where it returns the instant you
+stop steering it. Centring is something you hold, not something that happens
+to you while you look away.
+
+The point pip in the position dial is a **big soft blur**, not a dot. It tells
+you roughly where the point lies and deliberately nothing more — the last of
+the precision has to come off the bubble.
 
 ### Levels
 
-| Level | Points | Position tolerance | Bubble tolerance |
-|---|---|---|---|
-| 1 — Rookie | 3 | ±0.300 ft | 30 % |
-| 2 — Journeyman | 4 | ±0.150 ft | 18 % |
-| 3 — Foreman | 5 | ±0.060 ft | 9 % |
-| 4 — No Room For Error | 6 | ±0.020 ft | 3 % |
+| Level | Points | Position tolerance | Bubble tolerance | Bubble reaction (`bubbleHump`) | Readout lag | Pole drift rate | Pole stray cap |
+|---|---|---|---|---|---|---|---|
+| 1 — Rookie | 3 | ±0.300 ft | 30 % | 0.50 | 0.5 s | 0.30 | 0.100 ft |
+| 2 — Journeyman | 4 | ±0.150 ft | 18 % | 0.75 | 1.0 s | 0.75 | 0.150 ft |
+| 3 — Foreman | 5 | ±0.060 ft | 9 % | 0.75 | 1.5 s | 1.44 | 0.180 ft |
+| 4 — No Room For Error | 6 | ±0.020 ft | 3 % | 1.00 | 2.0 s | 2.40 | 0.200 ft |
+
+The last two columns are **POLE only** — a bipod never drifts. `posDriftAccel`
+is how fast the rod starts wandering once you stand still; `driftCapFt` is how
+far it may get in one idle session before it stops. Drift pushes the rod
+radially away from the point, so it moves *both* axes at once — that is why
+nudging TO/AWAY opens up LEFT/RIGHT on its own. Tapping any direction resets
+the session and stops it dead.
+
+`bubbleHump` is how violently the bubble reacts to being steered — it scales
+the spring stiffness, the damping and the per-frame jitter together, so higher
+means faster, twitchier and harder to hold level.
+
+The 10% BIPOD hand-off gate is a single constant (`BIPOD_FLIP_TOLERANCE_PCT`),
+not per level, and it is *not* the pass/fail test. On Level 1 the gate is
+tighter than the pass mark; on Level 4 it is looser, so getting the hand-off
+is not the same as earning the point.
 
 ### Controls
 
 | Input | Does |
 |---|---|
-| `W` `A` `S` `D` | Walk. Triangles and readouts tell you which way to go |
-| Mouse over the bubble vial | Levels the bubble (inverted) |
-| Arrow keys | Nudge the bubble target, as an alternative to the mouse |
+| `W` `A` `S` `D` | Walk — only while POINT POSITION is one of the live panels |
+| Cursor **held on** the bubble vial | Levels the bubble (inverted). Take it off the vial and the bubble runs home |
+| Arrow keys | Nudge the bubble target, as an alternative to the cursor |
 | `Space` / click | Open the start gate |
-| Left-click | Measure and log the point |
+| Left-click / MEASURE disc | Measure and log the point — refused until MEASURE is unlocked |
 | `Esc` | Abort back to the menu |
 
 ---
@@ -145,11 +192,49 @@ python -c "from PIL import Image; import glob, os; [Image.open(p).save(os.path.s
 
 ### About `js/game-engine.js`
 
-Ported from the tested v7 prototype. The `LEVELS` table, `BASE_SPEED_FT`,
-`REVEAL_DELAY`, `EPS`, `DRIFT_CAP_FT`, the bubble spring/damping constants,
-the bipod lock/unlock cycle and the pass/fail test are carried over unchanged
-and should not be retuned as a side effect of UI work — they were tuned
-through playtesting across six prototype versions.
+Ported from the tested v7 prototype. `BASE_SPEED_FT`, `EPS`, `DRIFT_CAP_FT`,
+the bubble spring constant and the pass/fail test are still v7's and should
+not be retuned as a side effect of UI work — they were tuned through
+playtesting across six prototype versions.
+
+V11 deliberately changed three things in that table and added one: `bubbleHump`
+was raised to the 0.50/0.75/0.75/1.00 ramp, the new `readoutLagSec` column was
+added, the bipod lock/unlock cycle was replaced by the `activePanel` hand-off
+state machine, and `REVEAL_DELAY` was retired in favour of the per-level lag.
+
+### Tuning the bubble — read this before turning anything
+
+V11.1 chased "it's too hard" through four dials and only one of them worked.
+The findings are written up in full above `BUBBLE_JITTER` in the engine; the
+short version:
+
+**The bubble is not hard to hold, it is hard to settle.** Park the cursor dead
+centre on Level 1 and leave it and the bubble sits at 0.7% offset, inside
+tolerance 100% of the time. All the difficulty is the *ringing* after it gets
+thrown out to its home — which happens on every new point, every hand-off and
+every time you let go.
+
+So **`BUBBLE_DAMPING` is the dial**, and it is the only one. V11.1 raises it
+from 0.6 to 0.75. Time to settle and stay inside tolerance:
+
+| Level | before (0.6) | after (0.75) |
+|---|---|---|
+| 1 | 3.5 s | 2.6 s |
+| 2 | — | 4.5 s |
+| 3 | ~9 s | 6.6 s |
+| 4 | never settled in 18 s | 10.9 s |
+
+Those are worst-case: measured with the cursor parked still, so a player
+actively counter-steering beats them. Above roughly 1.0 the bubble stops
+behaving like a liquid vial and starts behaving like a needle on a dial.
+
+The three dials that look right and are not: `BUBBLE_MAX_VEL` is a symmetric
+speed cap, so it slows the return to centre as much as the escape and barely
+moves difficulty. `bubbleHump` is responsiveness, not difficulty — lowering it
+weakens the spring that follows your cursor and makes the bubble *harder* to
+control (−20% took Level 1 from 62% of the time inside tolerance to 32%).
+`BUBBLE_JITTER` barely registers, because the steady state was never the
+problem.
 
 The only reshaping was plumbing: v7 held its state in bare module-scope
 variables and drew both gauges into a single 900×380 canvas. V8 keeps that
@@ -170,10 +255,8 @@ publish subdirectory — serve the repo root.
 
 ---
 
-## Not in V8
+## Not in V11
 
-- Functional touch / mobile joystick input. The joystick nubs on the player
-  UI are decorative artwork this round.
 - Accounts or persistent player profiles. JOB / OPERATOR / INSTRUMENT are
   static placeholders.
 - Drone lidar, survey topo, and the 3D walking map modules.
