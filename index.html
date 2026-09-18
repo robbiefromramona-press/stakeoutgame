@@ -60,29 +60,46 @@
        .rotate-hint in styles.css -->
   <p class="rotate-hint">&#8635; ROTATE TO PLAY</p>
 
+  <!-- ==================================================================== -->
+  <!-- V12: THE INSTRUMENT IS A STACK OF REAL IMAGE LAYERS                  -->
+  <!-- Every piece of the V12 art is its own <img>, registered to the same  -->
+  <!-- 1920x960 frame and placed in percentages of it (see "SCREEN 2" in    -->
+  <!-- styles.css). Nothing below recreates the artwork in CSS. The parts   -->
+  <!-- that move -- triangles, point glow, bubble, LCD digits -- are drawn  -->
+  <!-- onto canvases from sprites cut from the same art (js/ui-skin.js).   -->
+  <!-- The art is generated from reference/UI_scaled_up by                  -->
+  <!-- tools/prep_v12_layers.py.                                            -->
+  <!-- ==================================================================== -->
   <div class="stage stage--player" id="playerStage">
 
-    <!-- header strip: LEVEL X | POINT Y OF Z -->
+    <!-- static art, back to front -->
+    <picture><source type="image/webp" srcset="assets/img/v12/bezel.webp" /><img class="layer layer-bezel" src="assets/img/v12/bezel.png" alt="" draggable="false" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/screen.webp" /><img class="layer layer-screen" src="assets/img/v12/screen.png" alt="" draggable="false" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/logo_top.webp" /><img class="layer layer-logo-top" src="assets/img/v12/logo_top.png" alt="" draggable="false" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/logo_bottom.webp" /><img class="layer layer-logo-bottom" src="assets/img/v12/logo_bottom.png" alt="" draggable="false" /></picture>
+
+    <!-- header: LEVEL X | POINT Y OF Z, in the black strip either side of the
+         logo at the top of the bezel -->
     <div class="hud-head">
-      <span class="hud-y">LEVEL</span> <span class="hud-w" id="hudLevel">1</span>
-      <span class="hud-bar">|</span>
-      <span class="hud-y">POINT</span> <span class="hud-w" id="hudPoint">1</span>
-      <span class="hud-y">OF</span> <span class="hud-w" id="hudTotal">3</span>
+      <span class="hud-side hud-left"><span class="hud-y">LEVEL</span> <span class="hud-w" id="hudLevel">1</span></span>
+      <span class="hud-side hud-right"><span class="hud-y">POINT</span> <span class="hud-w" id="hudPoint">1</span>
+        <span class="hud-y">OF</span> <span class="hud-w" id="hudTotal">3</span></span>
     </div>
 
     <!-- ------------------------------------------------------------------ -->
-    <!-- THE TWO DATA-COLLECTOR PANELS, SIDE BY SIDE                         -->
-    <!-- Each is a fill (blacks out the baked artwork), a live canvas, and a  -->
-    <!-- frame. The frame lies exactly over the panel outline painted into    -->
-    <!-- the artwork and re-colours it: yellow for POINT POSITION, green for  -->
-    <!-- BUBBLE LEVEL, thin while idle and bold while that panel is the one   -->
-    <!-- the player may touch. See .panel-frame in styles.css for the pixel   -->
-    <!-- measurements. app.js drives .is-active / .is-idle here and .is-dim   -->
-    <!-- on the panel contents, both from the engine's onPanelState.          -->
+    <!-- THE TWO DATA-COLLECTOR PANELS                                       -->
+    <!-- Each gauge is its face (an image layer cut from the art, so it can  -->
+    <!-- grey out on its own), a canvas for the moving parts, and a frame.   -->
+    <!-- The frame lies over the panel outline painted into the art and      -->
+    <!-- re-colours it: yellow for POINT POSITION, green for BUBBLE LEVEL,   -->
+    <!-- thin while idle and bold while that panel is the one the player may -->
+    <!-- touch. app.js drives .is-active / .is-idle on the frames and        -->
+    <!-- .is-dim on the faces, canvases and readouts, from the engine's      -->
+    <!-- onPanelState.                                                       -->
     <!-- ------------------------------------------------------------------ -->
 
     <!-- left panel: point position — YELLOW frame -->
-    <div class="panel-fill pos-fill" aria-hidden="true"></div>
+    <picture><source type="image/webp" srcset="assets/img/v12/dial_face.webp" /><img class="layer layer-dial" src="assets/img/v12/dial_face.png" alt="" draggable="false" id="dialFace" /></picture>
     <canvas id="posCanvas" class="gauge pos-gauge" width="856" height="856"
             aria-label="Point position gauge"></canvas>
     <div class="panel-frame frame-pos is-idle" id="framePos" aria-hidden="true"></div>
@@ -94,46 +111,57 @@
          to level the bubble logs a point and resets the bubble underneath your
          thumb. Harmless on desktop (you steer by hovering, never clicking);
          fatal on touch, where steering IS touching. -->
-    <div class="panel-fill bub-fill" aria-hidden="true"></div>
+    <picture><source type="image/webp" srcset="assets/img/v12/vial_face.webp" /><img class="layer layer-vial" src="assets/img/v12/vial_face.png" alt="" draggable="false" id="vialFace" /></picture>
     <canvas id="bubbleCanvas" class="gauge bub-gauge" width="860" height="860"
             data-nomeasure aria-label="Bubble level gauge"></canvas>
     <div class="panel-frame frame-bub is-idle" id="frameBub" aria-hidden="true"></div>
 
-    <!-- numeric readouts, over the two boxes at the foot of the left panel -->
+    <!-- numeric readouts, in the LEFT / RIGHT and TO / AWAY boxes. The spans
+         carry the values as text (screen readers, headless checks); the
+         canvas shows them in the V12 LCD glyphs. -->
     <div class="readout ro-1">
+      <canvas class="ro-canvas" id="roCanvasLR" aria-hidden="true"></canvas>
       <span class="ro-v" id="roLeft">---</span>
       <span class="ro-v" id="roRight">---</span>
       <span class="ro-u">ft</span>
     </div>
     <div class="readout ro-2">
+      <canvas class="ro-canvas" id="roCanvasTA" aria-hidden="true"></canvas>
       <span class="ro-v" id="roTo">---</span>
       <span class="ro-v" id="roAway">---</span>
       <span class="ro-u">ft</span>
     </div>
 
+    <!-- TIMESTAMP: the level stopwatch, in the right-hand LCD box -->
+    <div class="lcd" id="lcdClock" role="timer" aria-label="Level elapsed time">
+      <canvas class="lcd-canvas" id="lcdCanvas" aria-hidden="true"></canvas>
+    </div>
+
+    <!-- the pads and MEASURE buttons: real art, one image each, so each can
+         show its own state -->
+    <picture><source type="image/webp" srcset="assets/img/v12/pad_l.webp" /><img class="layer layer-pad-l" src="assets/img/v12/pad_l.png" alt="" draggable="false" id="artPadL" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/pad_r.webp" /><img class="layer layer-pad-r" src="assets/img/v12/pad_r.png" alt="" draggable="false" id="artPadR" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/meas_l.webp" /><img class="layer layer-meas-l" src="assets/img/v12/meas_l.png" alt="" draggable="false" id="artMeasL" /></picture>
+    <picture><source type="image/webp" srcset="assets/img/v12/meas_r.webp" /><img class="layer layer-meas-r" src="assets/img/v12/meas_r.png" alt="" draggable="false" id="artMeasR" /></picture>
+
     <!-- ------------------------------------------------------------------ -->
     <!-- TOUCH CONTROLS                                                       -->
-    <!-- Real hotspots sitting over the two round pads and the MEASURE discs -->
-    <!-- painted into the frame art. The pads do DIFFERENT jobs: the left is  -->
-    <!-- a four-way D-pad for walking, the right an analog joystick for the   -->
-    <!-- bubble. Both MEASURE discs fire                                      -->
-    <!-- the same shot the desktop click fires. Pointer events, so a mouse    -->
-    <!-- on desktop uses this identical path -- no touch-only branch.         -->
+    <!-- Real hotspots sitting over the two round pads and the MEASURE       -->
+    <!-- buttons in the art. The pads do DIFFERENT jobs: the left is a       -->
+    <!-- four-way D-pad for walking, the right an analog joystick for the    -->
+    <!-- bubble. Both MEASURE buttons fire the same shot the desktop click   -->
+    <!-- fires. Pointer events, so a mouse on desktop uses this identical    -->
+    <!-- path -- no touch-only branch.                                       -->
     <!-- data-nomeasure marks the whole cluster as "do not let the global     -->
     <!-- tap-to-measure handler see taps that started in here".               -->
+    <!-- V12 changes only WHERE these sit (on the new art) and how big they  -->
+    <!-- are -- the elements, classes and bindings are exactly V11.2's.      -->
     <!-- ------------------------------------------------------------------ -->
     <div class="tc" id="touchControls" data-nomeasure>
       <!-- LEFT pad: a real four-way D-PAD. Discrete up/down/left/right, one
-           direction per thumb, no diagonals and no analog travel -- pressing a
-           direction is the walking play style this game wants.
-
-           The four arrows are laid out as a plus over the painted pad and are
-           deliberately much larger than the originals. The first version of
-           these was 28 CSS px on a landscape phone, well under a dependable
-           thumb target, which is why the pad read as unresponsive; the plus
-           layout below uses the pad's unused diagonal corners to get every
-           arrow past 44px without any of them overlapping. Same buttons, same
-           behaviour, just big enough to hit. -->
+           direction per thumb, no diagonals and no analog travel. Four wedges
+           tile the whole pad, so every pixel of it belongs to exactly one
+           direction. -->
       <button type="button" tabindex="-1" class="tc-hit tc-dir dir-up"    data-dir="up"    aria-label="Walk up"></button>
       <button type="button" tabindex="-1" class="tc-hit tc-dir dir-left"  data-dir="left"  aria-label="Walk left"></button>
       <button type="button" tabindex="-1" class="tc-hit tc-dir dir-right" data-dir="right" aria-label="Walk right"></button>
@@ -147,13 +175,6 @@
 
       <button type="button" tabindex="-1" class="tc-hit tc-measure meas-l" aria-label="Measure" disabled></button>
       <button type="button" tabindex="-1" class="tc-hit tc-measure meas-r" aria-label="Measure" disabled></button>
-    </div>
-
-    <!-- TIMESTAMP: the level stopwatch, over the LCD housing in the art.
-         Opaque panel first (it covers the ghost "88:88:88" baked into the
-         artwork), then the live seven-segment digits app.js builds. -->
-    <div class="lcd" id="lcdClock" role="timer" aria-label="Level elapsed time">
-      <div class="lcd-row" id="lcdRow"></div>
     </div>
 
     <p class="shot-msg" id="shotMsg"></p>
@@ -221,6 +242,7 @@
 </div>
 
 <script src="js/game-engine.js"></script>
+<script src="js/ui-skin.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

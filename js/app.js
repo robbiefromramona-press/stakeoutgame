@@ -1,5 +1,5 @@
 /* ==========================================================================
-   STAKE-OUT V11 — application shell
+   STAKE-OUT V12 — application shell
    Screen routing, menu state, live HUD binding, field-report rendering and
    the two exports. All gameplay lives in game-engine.js.
    ========================================================================== */
@@ -118,8 +118,11 @@
      they are already black, so there is nothing to grey. */
   const framePos = $('framePos');
   const frameBub = $('frameBub');
-  const posDim = [$('posCanvas'), $('roLeft').parentNode, $('roTo').parentNode];
-  const bubDim = [$('bubbleCanvas')];
+  /* V12: the dial face and the vial are now real image layers of their own
+     (layer-dial / layer-vial), cut from the art as circles, so they grey out
+     along with the canvas that draws their moving parts. */
+  const posDim = [$('dialFace'), $('posCanvas'), $('roLeft').parentNode, $('roTo').parentNode];
+  const bubDim = [$('vialFace'), $('bubbleCanvas')];
   const measureBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-measure'));
   const dirBtns = Array.prototype.slice.call(document.querySelectorAll('.tc-dir'));
   const stickBubble = $('stickBubble'); // RIGHT pad -> bubble joystick
@@ -127,6 +130,7 @@
   const game = StakeOut.create({
     posCanvas: $('posCanvas'),
     bubbleCanvas: $('bubbleCanvas'),
+    skin: StakeOutSkin.gauges,        // V12 art: sprites instead of vector gauges
 
     onHud: function (h) {
       $('hudLevel').textContent = h.level;
@@ -139,6 +143,7 @@
       $('roRight').textContent = r.right;
       $('roTo').textContent    = r.to;
       $('roAway').textContent  = r.away;
+      paintReadouts(r);
     },
 
     onMessage: function (text, pass) {
@@ -423,53 +428,16 @@
   /* ======================================================================== */
   /* TIMESTAMP - the per-level stopwatch                                      */
   /* ------------------------------------------------------------------------ */
-  /* Seven-segment digits assembled from divs: each digit is seven absolutely
-     positioned bars inside a box, switched on and off per value. No webfont
-     and no sprite sheet, so there is nothing external that can fail to load.
-     The clock is per level -- it resets to 00:00:00 at the top of every level
-     rather than running for the whole session.                               */
+  /* V12: drawn with the V12 LCD art -- the grey "88.88.88" ghost from
+     lcd_readouts.png with the live digits lit on top from digits_1.png (see
+     StakeOutSkin.paintClock). V10's seven-segment divs are gone. The clock is
+     still per level -- it resets to 00:00:00 at the top of every level rather
+     than running for the whole session -- and still turns red past
+     TIME_WARNING_THRESHOLD_SEC.                                              */
   /* ======================================================================== */
   const lcd = $('lcdClock');
-  const lcdRow = $('lcdRow');
-  const lcdDigits = [];
-
-  const SEGMENTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-  const HORIZONTAL = 'adg';               // the rest (b c e f) are the uprights
-  const DIGIT_SEGMENTS = {
-    '0': 'abcdef', '1': 'bc',    '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
-    '5': 'acdfg',  '6': 'acdefg', '7': 'abc',  '8': 'abcdefg', '9': 'abcdfg'
-  };
-
-  function buildLcd() {
-    // matches grid-template-columns in styles.css: digit, 5fr spacer, digit,
-    // 26fr colon, ... which is the spacing measured off the artwork
-    const plan = ['d', 'sp', 'd', 'colon', 'd', 'sp', 'd', 'colon', 'd', 'sp', 'd'];
-    plan.forEach(function (kind) {
-      const cell = document.createElement('div');
-      if (kind === 'd') {
-        cell.className = 'lcd-d';
-        SEGMENTS.forEach(function (name) {
-          const seg = document.createElement('span');
-          seg.className = 'lcd-seg ' +
-            (HORIZONTAL.indexOf(name) >= 0 ? 'h' : 'v') + ' s-' + name;
-          cell.appendChild(seg);
-        });
-        lcdDigits.push(cell);
-      } else if (kind === 'colon') {
-        cell.className = 'lcd-colon';
-      } else {
-        cell.className = 'lcd-sp';
-      }
-      lcdRow.appendChild(cell);
-    });
-  }
-
-  function paintDigit(cell, ch) {
-    const on = DIGIT_SEGMENTS[ch] || '';
-    for (let i = 0; i < SEGMENTS.length; i++) {
-      cell.children[i].classList.toggle('is-on', on.indexOf(SEGMENTS[i]) >= 0);
-    }
-  }
+  const lcdCanvas = $('lcdCanvas');
+  let lastClock = { digits: '000000', warn: false };
 
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -479,13 +447,48 @@
     const mm = Math.floor((whole % 3600) / 60);
     const ss = whole % 60;
     const digits = pad2(hh) + pad2(mm) + pad2(ss);
-    for (let i = 0; i < lcdDigits.length; i++) paintDigit(lcdDigits[i], digits.charAt(i));
     // compared on the un-rounded elapsed time, so the flip lands on the frame
     // the readout first shows the threshold
-    lcd.classList.toggle('is-warn', elapsedSec > TIME_WARNING_THRESHOLD_SEC);
+    const warn = elapsedSec > TIME_WARNING_THRESHOLD_SEC;
+    lcd.classList.toggle('is-warn', warn);
     lcd.setAttribute('aria-label',
       'Level elapsed time ' + pad2(hh) + ':' + pad2(mm) + ':' + pad2(ss));
+    lastClock = { digits: digits, warn: warn };
+    StakeOutSkin.paintClock(lcdCanvas, digits, warn);
   }
+
+  /* LEFT/RIGHT and TO/AWAY. The text spans stay in the page (screen readers
+     and the headless checks read them); what you see is the canvas beside
+     them, painted from the same values in the V12 LCD glyphs. */
+  const roCanvasLR = $('roCanvasLR');
+  const roCanvasTA = $('roCanvasTA');
+  let lastReadouts = { left: '---', right: '---', to: '---', away: '---' };
+
+  // the engine reports readouts every frame; only repaint when one changed
+  function paintReadouts(r, force) {
+    const same = r.left === lastReadouts.left && r.right === lastReadouts.right &&
+                 r.to === lastReadouts.to && r.away === lastReadouts.away;
+    lastReadouts = r;
+    if (same && !force) return;
+    StakeOutSkin.paintReadout(roCanvasLR, r.left, r.right);
+    StakeOutSkin.paintReadout(roCanvasTA, r.to, r.away);
+  }
+
+  /* The LCD canvases are sized to their boxes each time they paint, so a
+     rotate or a resize only has to ask for a repaint. The gauge canvases need
+     nothing: their bitmaps are a fixed size and CSS scales them. */
+  function repaintLcds() {
+    paintReadouts(lastReadouts, true);
+    StakeOutSkin.paintClock(lcdCanvas, lastClock.digits, lastClock.warn);
+  }
+  window.addEventListener('resize', repaintLcds);
+  window.addEventListener('orientationchange', repaintLcds);
+
+  // once every sprite is in, repaint anything drawn before it arrived
+  StakeOutSkin.onReady(function () {
+    game.redraw();
+    repaintLcds();
+  });
 
   let clockStartMs = null;
   let clockTimer = null;
@@ -509,7 +512,6 @@
     }, 200);
   }
 
-  buildLcd();
   paintClock(0);
 
   window.addEventListener('keydown', function (e) {
@@ -529,6 +531,8 @@
     releaseAllTouch();
     clockReset();          // every level starts its own clock at 00:00:00
     game.startLevel(levelIndex, mode);
+    // the LCD canvases had no size while the player screen was hidden
+    repaintLcds();
   }
 
   /* ======================================================================== */

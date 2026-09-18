@@ -722,7 +722,40 @@ const StakeOut = (function () {
       else { pctx.fillStyle = '#000'; pctx.fill(); pctx.strokeStyle = YELLOW; pctx.lineWidth = 2; pctx.stroke(); }
     }
 
+    /* V12: with a skin (the V12 art, see ui-skin.js) the dial face, rings,
+       crosshair and triangles are real image layers, so this draws only the
+       parts that change: which triangles are lit, and the blurred point glow.
+       Same getTriangleStates(), same pip placement maths as below -- only the
+       pixels are new. Without a skin it falls through to the V11 drawing. */
+    function drawPositionSkin(skin) {
+      const { cx, cy, r } = POS_GAUGE;
+      const s = getTriangleStates();
+      ['up', 'down', 'left', 'right'].forEach(function (dir) {
+        const t = skin.tri[dir];
+        if (!skin.isReady(t.img)) return;
+        pctx.globalAlpha = s[dir] ? 1 : skin.unlitAlpha;
+        pctx.drawImage(t.img, t.x, t.y, t.w, t.h);
+      });
+      pctx.globalAlpha = 1;
+
+      if (readoutsVisible && skin.isReady(skin.glow.img)) {
+        const d = Math.hypot(lastRevealed.x, lastRevealed.y);
+        if (d > 0.0001) {
+          const rr = r * 0.92 * (1 - Math.exp(-d / 4));   // unchanged from V11
+          const px = cx + (lastRevealed.x / d) * rr;
+          const py = cy + (lastRevealed.y / d) * rr;
+          pctx.save();
+          pctx.beginPath(); pctx.arc(cx, cy, r, 0, Math.PI * 2); pctx.clip();
+          pctx.globalAlpha = skin.glow.alpha;
+          const g = skin.glow.r;
+          pctx.drawImage(skin.glow.img, px - g, py - g, g * 2, g * 2);
+          pctx.restore();
+        }
+      }
+    }
+
     function drawPositionGauge() {
+      if (cfg.skin && cfg.skin.pos) { drawPositionSkin(Object.assign({ isReady: cfg.skin.isReady }, cfg.skin.pos)); return; }
       const { cx, cy, r } = POS_GAUGE;
       const apex = r + r * T_APEX, base = r + r * T_BASE, half = r * T_HALF;
       pctx.save();
@@ -786,7 +819,32 @@ const StakeOut = (function () {
       const { cx, cy, r } = BUBBLE_GAUGE;
       const lvl = LEVELS[levelIndex];
       const live = bubbleActive;
+      const skin = cfg.skin && cfg.skin.bub;
       bctx.save();
+
+      /* V12: the bezel, ring, glass, crosshair and index bars are the vial
+         art underneath this canvas, so with a skin only the moving bubble
+         sprite, the two target rings and the caption are drawn. The rings go
+         on TOP of the bubble here: the V12 bubble is painted bigger than the
+         old one, and on Levels 2-4 the pass ring is smaller than it, so drawn
+         underneath (as V11 did) it would vanish exactly when you need it. The
+         greyed-out look comes from the CSS .is-dim filter on this canvas and
+         on the vial layer, so the bubble sprite needs no grey variant. */
+      if (skin) {
+        const dx = cx + bubble.x * r, dy = cy + bubble.y * r;
+        if (cfg.skin.isReady(skin.bubble.img)) {
+          const br = skin.bubble.r;
+          bctx.drawImage(skin.bubble.img, dx - br, dy - br, br * 2, br * 2);
+        }
+        bctx.setLineDash([7, 7]);
+        bctx.strokeStyle = live ? YELLOW : '#4a4a3a'; bctx.lineWidth = 2.5;
+        bctx.beginPath(); bctx.arc(cx, cy, r * (lvl.bubbleTolerancePct / 100), 0, Math.PI * 2); bctx.stroke();
+        if (activePanel === 'bub') {
+          bctx.strokeStyle = 'rgba(255,255,255,0.9)'; bctx.lineWidth = 2.5;
+          bctx.beginPath(); bctx.arc(cx, cy, r * (BIPOD_FLIP_TOLERANCE_PCT / 100), 0, Math.PI * 2); bctx.stroke();
+        }
+        bctx.setLineDash([]);
+      } else {
 
       // machined bezel
       const bez = bctx.createLinearGradient(cx, cy - r - 16, cx, cy + r + 16);
@@ -855,6 +913,7 @@ const StakeOut = (function () {
       bctx.save();
       bctx.beginPath(); bctx.arc(cx, cy, r, 0, Math.PI * 2); bctx.clip();
       bctx.fillStyle = sheen; bctx.fillRect(cx - r, cy - r, r * 2, r); bctx.restore();
+      }  // end of the V11 (no skin) drawing
 
       /* Caption. V8 hung this below the vial at cy+r+46 and cy+r+68, which in
          art pixels is y=691 and y=712. with_measure_and_clock.png puts the
@@ -980,6 +1039,9 @@ const StakeOut = (function () {
       stop: stop,
       destroy: destroy,
       handleClick: handleClick,
+      // V12: repaint the gauges once the skin's sprites finish loading, so a
+      // gate screen drawn before they arrived does not stay blank
+      redraw: function () { if (active) draw(); },
       setDirection: setDirection,
       releaseDirections: releaseDirections,
       setBubbleStick: setBubbleStick,

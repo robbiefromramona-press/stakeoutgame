@@ -1,5 +1,5 @@
 /* ==========================================================================
-   STAKE-OUT V9 — TotalStationTech field simulator
+   STAKE-OUT V12 — TotalStationTech field simulator
    --------------------------------------------------------------------------
    Every screen is a .stage: a fixed-aspect box carrying one of the concept-art
    PNGs as its background, with real controls positioned on top in percentages
@@ -100,12 +100,13 @@ html.is-playing, html.is-playing body {
   background-image: image-set(url("../assets/img/main_menu.webp") type("image/webp"),
                               url("../assets/img/main_menu.png")  type("image/png"));
 }
+/* V12: the player stage carries no background image -- the instrument is a
+   stack of <img> layers inside it (see SCREEN 2 below). Its frame is the V12
+   art cropped to the instrument, 1920x960: at 2:1 it fills far more of a
+   landscape phone (about 2.2:1) than V11's 3:2 did, which is most of the
+   V12 size increase on mobile. */
 .stage--player {
-  --aw: 1536; --ah: 1024;
-  background-image: url("../assets/img/with_measure_and_clock.png");
-  background-image: image-set(url("../assets/img/with_measure_and_clock.webp") type("image/webp"),
-                              url("../assets/img/with_measure_and_clock.png")  type("image/png"));
-  background-size: 100% 100%;
+  --aw: 1920; --ah: 960;
   cursor: crosshair;
 }
 .stage--report {
@@ -244,37 +245,78 @@ html.is-playing, html.is-playing body {
 }
 
 /* ==========================================================================
-   SCREEN 2 — PLAYER UI
+   SCREEN 2 — PLAYER UI (V12)
+   --------------------------------------------------------------------------
+   The instrument is a stack of real image layers (index.html), all cut from
+   the V12 art and registered to ONE frame by tools/prep_v12_layers.py. That
+   frame is the concept master's 1920x1080 cropped to the instrument itself,
+   1920 x 960 ("master pixels", y offset 52), so every box below is
+
+       left  = x / 1920        top    = (y - 52) / 960
+       width = w / 1920        height = h / 960
+
+   of a master-pixel measurement. The script prints the numbers for the art
+   layers; the rest are measured off the same frame and noted where they are
+   used. Sizes inside the stage are container units (1cqw = 1% of the stage
+   width) so the whole instrument scales as one piece.
    ========================================================================== */
 
-/* header strip — covers the artwork's baked "LEVEL 1 | POINT 3 OF 3" */
-.hud-head {
+.layer {
   position: absolute;
-  left: 24.74%; top: 20.51%; width: 50.78%; height: 3.52%;
-  background: var(--hud-ink);
-  display: flex; align-items: center; justify-content: center; gap: .8cqw;
+  display: block;
+  max-width: none;
+  pointer-events: none;          /* taps go through to the stage / hotspots */
+  user-select: none; -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+.layer-bezel, .layer-screen { left: 0; top: 0; width: 100%; height: 100%; }
+.layer-logo-top    { left: 38.385%; top:  2.917%; width: 24.323%; height:  9.479%; }
+.layer-logo-bottom { left: 38.802%; top: 83.542%; width: 22.240%; height:  9.792%; }
+
+/* the two gauge faces, cut from the art as circles (dial r174 + 12, vial
+   r157.5 + 44) and laid exactly over the same pixels of layer-screen, so a
+   gauge can grey out without greying its panel title */
+.layer-dial { left: 26.667%; top: 24.688%; width: 19.427%; height: 38.854%; }
+.layer-vial { left: 53.698%; top: 23.021%; width: 21.042%; height: 42.083%; }
+
+/* pads and MEASURE buttons: pad_l (34,205)-(422,588), meas_l (122,584)-(333,794),
+   pad_r (1495,205)-(1885,588), meas_r (1586,584)-(1797,794) */
+.layer-pad-l  { left:  1.771%; top: 15.937%; width: 20.208%; height: 39.896%; }
+.layer-pad-r  { left: 77.865%; top: 15.937%; width: 20.312%; height: 39.896%; }
+.layer-meas-l { left:  6.354%; top: 55.417%; width: 10.990%; height: 21.875%; }
+.layer-meas-r { left: 82.604%; top: 55.417%; width: 10.990%; height: 21.875%; }
+
+/* header — LEVEL on the left of the logo, POINT n OF m on the right, in the
+   black strip across the top of the bezel (strip y 94..200, logo x 737..1204) */
+.hud-head {
+  position: absolute; left: 0; top: 4.2%; width: 100%; height: 7.2%;
+  pointer-events: none;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 2.3cqw;
-  letter-spacing: .42cqw;
+  font-size: 2.05cqw;
+  letter-spacing: .38cqw;
   white-space: nowrap;
 }
+.hud-side {
+  position: absolute; top: 0; height: 100%;
+  display: flex; align-items: center; gap: .7cqw;
+}
+.hud-left  { right: 63.2%; justify-content: flex-end; }   /* ends at x=707  */
+.hud-right { left:  64.0%; justify-content: flex-start; } /* starts at x=1229 */
 .hud-y   { color: var(--yellow); }
 .hud-w   { color: #fff; }
-.hud-bar { color: var(--yellow); opacity: .8; margin: 0 .6cqw; }
-
-/* opaque fills that black out the artwork's baked gauges */
-.panel-fill { position: absolute; background: var(--panel-ink); }
-.pos-fill { left: 22.20%; top: 33.69%; width: 23.96%; height: 32.42%; }
-/* The fill stops at y=658/1024 because the TIMESTAMP housing painted into
-   with_measure_and_clock.png starts at y=666 (its white label at y=660).
-   The old V8 fill ran to y=678 and would have clipped the label's top. */
-.bub-fill { left: 54.69%; top: 35.06%; width: 23.11%; height: 29.20%; }
 
 .gauge { position: absolute; display: block; }
-.pos-gauge { left: 21.32%; top: 30.71%; width: 25.59%; height: 38.38%; }
+/* The canvases keep the engine's own geometry and are placed so the engine's
+   r lands on the art's r. POS: engine centre (214,214) r=122 on the art's dial
+   centre (698,475) r=174, so 1 unit = 1.4262 master px and the 428-unit canvas
+   is 610.4 px square at (392.8, 169.8). BUB: engine (215,215) r=140 on the
+   vial (1233,475) r=157.5, 1 unit = 1.125 px, 483.75 px square at
+   (991.1, 233.1). Because the vial's pointer maths is all relative to this
+   box, steering on the vial behaves exactly as it did in V11. */
+.pos-gauge { left: 20.458%; top: 12.270%; width: 31.793%; height: 63.586%; }
 .bub-gauge {
-  left: 52.67%; top: 29.59%; width: 27.08%; height: 40.63%;
+  left: 51.621%; top: 18.867%; width: 25.195%; height: 50.391%;
   /* The vial is a drag surface, so the browser must not treat a finger on it
      as a page pan. Without this a touch drag gets claimed as a scroll gesture,
      the browser fires pointercancel at us mid-drag, and the engine reads that
@@ -286,130 +328,118 @@ html.is-playing, html.is-playing body {
 }
 
 /* ==========================================================================
-   V11 — ACTIVE / IDLE PANELS
+   ACTIVE / IDLE PANELS (V11 behaviour, V12 geometry)
    --------------------------------------------------------------------------
    Each data-collector panel tells you whether it is the one you may touch:
    thin border while idle, bold while active. POINT POSITION is yellow,
    BUBBLE LEVEL is green.
 
-   These sit exactly on top of the two panel outlines painted into
-   with_measure_and_clock.png rather than anywhere else, because that outline
-   IS the panel's border and drawing a second one inside it cut straight
-   through the panel titles and the LEFT/RIGHT and TO/AWAY readout boxes.
+   These sit exactly on top of the panel outlines painted into the V12 play
+   screen, so they recolour that outline rather than drawing a second one
+   inside it. Measured off the registered art, the painted lines are 8px:
 
-   The geometry below was measured off the artwork pixel by pixel. The art is
-   1536x1024 and the painted outlines are an 8px line at:
+       POINT POSITION   left x 433..440   right x 959..965   top y 197..204
+       BUBBLE LEVEL     left x 975..982   right x 1497..1504 top y 197..204
 
-       POINT POSITION   x 265..768    y 257..793
-       BUBBLE LEVEL     x 776..1273   y 257..793
+   Each frame is set 2px outside those and is three-sided: the panels have
+   no painted bottom edge of their own -- they open straight onto the readout
+   boxes at y=662 -- so there is nothing to recolour there, and a bottom
+   border would cut through the down triangle.
 
-   The boxes are set 2px outside those, and the border is drawn thick enough
-   to cover the painted line completely -- it has to, because the painted one
-   is yellow on BOTH panels and the right-hand panel now has to read green.
-
-   Clearances the widths below are chosen to respect: the panel titles start
-   22px inside the top edge, and the readout boxes end 21px above the bottom
-   edge, so even the bold border stops short of both.
-
-   The frame is its own element, never a border on the canvas: a border on a
-   canvas is drawn inside its box under the global border-box rule, which
-   would shrink the bitmap and squash the gauge. pointer-events is off, so
-   tap-to-measure and the bubble's own pointer tracking reach straight
-   through it.
-
-   Greying out is deliberately BOTH halves of the job: .is-dim below is the
-   visual half, and the engine's activePanel is the functional half. Neither
-   alone is enough -- a panel that only looks dead but still answers to input
-   is exactly the bug this replaces.
+   pointer-events is off, so tap-to-measure and the vial's own pointer
+   tracking reach straight through. Greying out is BOTH halves of the job:
+   .is-dim below is the visual half, the engine's activePanel the functional
+   half.
    ========================================================================== */
 .panel-frame {
   position: absolute;
-  pointer-events: none;            /* never intercepts a tap or the bubble drag */
+  pointer-events: none;
   border-style: solid;
-  border-radius: .85cqw;           /* matches the painted corner chamfer */
+  border-bottom-width: 0 !important;
+  border-radius: .7cqw .7cqw 0 0;
   transition: border-width .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
-/* left:263 top:255 w:507 h:540  — the painted outline, 2px proud on every side */
-.frame-pos { left: 17.1224%; top: 24.9023%; width: 33.0078%; height: 52.7344%; }
-/* left:774 top:255 w:501 h:540 */
-.frame-bub { left: 50.3906%; top: 24.9023%; width: 32.6172%; height: 52.7344%; }
+/* x 431..967, y 195..662 */
+.frame-pos { left: 22.448%; top: 14.896%; width: 27.917%; height: 48.646%; }
+/* x 973..1506, y 195..662 */
+.frame-bub { left: 50.677%; top: 14.896%; width: 27.760%; height: 48.646%; }
 
-/* idle: ~12px, just enough to hide the painted line underneath */
-.panel-frame.is-idle   { border-width: .78cqw; box-shadow: none; }
-/* active: ~19px, plus a soft halo so it reads at a glance */
-.panel-frame.is-active { border-width: 1.25cqw; }
+/* idle: 12px, just enough to hide the painted line underneath */
+.panel-frame.is-idle   { border-width: .625cqw; box-shadow: none; }
+/* active: 16px, plus a soft halo so it reads at a glance */
+.panel-frame.is-active { border-width: .833cqw; }
 
-/* The idle colours are deliberately OPAQUE dark shades rather than the bright
-   colour at low alpha. A translucent border would let the painted yellow
-   outline underneath show through, which on the bubble panel blends to a
-   muddy yellow-green instead of reading as a dim green. */
-.frame-pos.is-idle   { border-color: #6d5712; }   /* yellow, turned right down */
+/* Idle colours are deliberately OPAQUE dark shades rather than the bright
+   colour at low alpha: a translucent border would let the painted yellow
+   outline show through, which on the bubble panel blends to a muddy
+   yellow-green instead of reading as a dim green. */
+.frame-pos.is-idle   { border-color: #6d5712; }
 .frame-pos.is-active { border-color: var(--yellow);
-                       box-shadow: 0 0 1.5cqw rgba(245, 197, 24, .5); }
-
-.frame-bub.is-idle   { border-color: #14611a; }   /* green, turned right down */
+                       box-shadow: 0 -.2cqw 1.5cqw rgba(245, 197, 24, .5); }
+.frame-bub.is-idle   { border-color: #14611a; }
 .frame-bub.is-active { border-color: var(--green);
-                       box-shadow: 0 0 1.5cqw rgba(34, 212, 34, .45); }
+                       box-shadow: 0 -.2cqw 1.5cqw rgba(34, 212, 34, .45); }
 
-/* The visual half of "greyed out": drained of colour and darkened.
-   Deliberately a filter and NOT opacity. These elements are the opaque
-   blackout layer that hides the gauges and readout boxes baked into
-   with_measure_and_clock.png -- turn them translucent and the painted
-   artwork underneath shows through, which looks like a rendering fault
-   rather than a dead panel. A filter leaves them fully opaque. */
-.gauge, .readout { transition: filter .12s ease; }
-.gauge.is-dim, .readout.is-dim { filter: grayscale(1) brightness(.45); }
+/* The visual half of "greyed out": drained of colour and darkened. A filter,
+   never opacity -- the gauge faces sit over the same art, and turning them
+   see-through would just show the undimmed copy underneath. */
+.gauge, .readout, .layer-dial, .layer-vial { transition: filter .12s ease; }
+.gauge.is-dim, .readout.is-dim,
+.layer-dial.is-dim, .layer-vial.is-dim { filter: grayscale(1) brightness(.45); }
 
-/* numeric readouts over the two boxes at the foot of the left panel */
-.readout {
-  position: absolute;
-  background: var(--panel-ink);
-  display: flex; align-items: center; justify-content: center; gap: .45cqw;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.7cqw;
-  color: #fff;
-  white-space: nowrap;
+/* ---- numeric readouts ---------------------------------------------------
+   Over the digit windows of the LEFT / RIGHT and TO / AWAY boxes: x 476..716
+   and 807..1047, y 712..790. The painted "ft" to the right of each is left
+   as art. The canvas draws the values in the V12 LCD glyphs; the text spans
+   are kept for screen readers and headless checks but not shown. */
+.readout { position: absolute; }
+.ro-1 { left: 24.792%; top: 68.750%; width: 12.500%; height: 8.125%; }
+.ro-2 { left: 42.031%; top: 68.750%; width: 12.500%; height: 8.125%; }
+.ro-canvas, .lcd-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ro-v, .ro-u {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
 }
-/* both readings reserve the same width whichever one is live, so the pair
-   stays centred in the box instead of jumping as digits appear. Sized so the
-   widest reading ("12.199") still clears the box's painted border. */
-.ro-v { min-width: 4.4cqw; text-align: center; }
-.ro-1 { left: 18.75%; top: 70.21%; width: 14.32%; height: 5.18%; }
-.ro-2 { left: 34.64%; top: 70.21%; width: 13.87%; height: 5.18%; }
-.ro-u { color: var(--yellow); }
 
-/* result toast — shown for the half-second between points */
+/* ---- TIMESTAMP: the level stopwatch -------------------------------------
+   The digit window of the TIMESTAMP box, x 1140..1474, y 712..792. app.js
+   adds .is-warn past TIME_WARNING_THRESHOLD_SEC and the digits go red. */
+.lcd { position: absolute; left: 59.375%; top: 68.750%; width: 17.396%; height: 8.333%; }
+
+/* result toast — shown for the half-second between points, centred across
+   both panels (x 433..1504) */
 .shot-msg {
-  position: absolute; left: 17.25%; width: 65.56%; top: 45.5%;
+  position: absolute; left: 22.552%; width: 55.781%; top: 36.5%;
   margin: 0; text-align: center;
   font-family: var(--font-display);
-  font-weight: 700; font-size: 2.5cqw; letter-spacing: .35cqw;
+  font-weight: 700; font-size: 2.3cqw; letter-spacing: .35cqw;
   padding: .9cqw 0;
   background: rgba(0,0,0,.86);
   border-top: .18cqw solid currentColor;
   border-bottom: .18cqw solid currentColor;
   opacity: 0; transition: opacity .12s ease;
   pointer-events: none;
+  z-index: 6;
 }
 .shot-msg.is-on { opacity: 1; }
 .shot-msg.pass { color: #4caf50; }
 .shot-msg.fail { color: var(--red); }
 
-/* start gate over the two panels */
+/* start gate over the two panels: x 433..1504, y 197..662 */
 .start-gate {
   position: absolute;
-  left: 17.25%; top: 25.20%; width: 65.56%; height: 51.56%;
+  left: 22.552%; top: 15.104%; width: 55.781%; height: 48.438%;
   background: rgba(0,0,0,.87);
+  border-radius: .7cqw;
   display: grid; place-items: center; text-align: center;
   color: var(--yellow);
   font-family: var(--font-display);
   z-index: 4;
 }
 .start-gate[hidden] { display: none; }
-.sg-1 { margin: 0; font-size: 3.6cqw; font-weight: 700; letter-spacing: .6cqw; animation: sgPulse 1.2s infinite; }
-.sg-2 { margin: .6cqw 0 0; font-size: 2.3cqw; font-weight: 700; letter-spacing: .45cqw; color: #fff; animation: sgPulse 1.2s infinite; }
-.sg-3 { margin: 2.6cqw 0 0; font-family: var(--font-mono); font-size: 1.25cqw; line-height: 1.9; color: #9a9a9a; letter-spacing: .05cqw; }
+.sg-1 { margin: 0; font-size: 3.4cqw; font-weight: 700; letter-spacing: .6cqw; animation: sgPulse 1.2s infinite; }
+.sg-2 { margin: .6cqw 0 0; font-size: 2.2cqw; font-weight: 700; letter-spacing: .45cqw; color: #fff; animation: sgPulse 1.2s infinite; }
+.sg-3 { margin: 2.2cqw 2cqw 0; font-family: var(--font-mono); font-size: 1.15cqw; line-height: 1.85; color: #9a9a9a; letter-spacing: .05cqw; }
 @keyframes sgPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 
 /* ==========================================================================
@@ -547,19 +577,18 @@ html.is-playing, html.is-playing body {
 }
 
 /* ==========================================================================
-   SCREEN 2 - TOUCH CONTROLS
+   SCREEN 2 - TOUCH CONTROLS (V12 geometry)
    --------------------------------------------------------------------------
-   with_measure_and_clock.png paints two D-pads and two MEASURE discs into the
-   instrument bezel. These are the real controls sitting exactly on top of
-   them, positioned from pixel measurements of that 1536x1024 artwork:
+   Real hotspots sitting exactly over the pad and MEASURE art (the layer-pad-*
+   and layer-meas-* images). The elements, classes and bindings are V11.2's
+   unchanged; V12 only moves them onto the new art, which paints the pads
+   about 60% bigger on a landscape phone than the V11 art did -- that, plus
+   the wider 2:1 stage, is where the bigger touch targets come from.
 
-     left  D-pad arrows  centres (119,410) (56,476) (182,476) (118,540)
-     right D-pad arrows  centres (1416,410) (1353,476) (1479,476) (1416,540)
-     MEASURE discs       centres (120,668) and (1413,668), r=63
-
-   Each pad is a 3x3 grid of 73.3px cells over a 220px square centred on the
-   pad, so the four hotspots tile the pad without overlapping each other - a
-   thumb sliding between them can never hold two directions at once.
+   All of their state visuals are drawn over the art, never instead of it:
+   a pressed direction lights its wedge, a dead control gets a dark cap, an
+   armed MEASURE pulses green. The V12 art has no pressed-state images of its
+   own, so these are the V11 overlays, reshaped to the new pads.
    ========================================================================== */
 .tc {
   position: absolute; inset: 0;
@@ -577,38 +606,24 @@ html.is-playing, html.is-playing body {
      a long press drives the player instead of gesturing the page */
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
-  border-radius: 1.1cqw;
   transition: background-color .08s linear, box-shadow .08s linear;
 }
 .tc-hit::-moz-focus-inner { border: 0; }
-.tc-hit.is-down {
-  background-color: rgba(245,197,24,.28);
-  box-shadow: inset 0 0 1.6cqw rgba(255,216,61,.55);
-}
 
 /* --- LEFT PAD: four-way D-pad --------------------------------------------
-   Discrete up/down/left/right walking -- press a direction, get exactly that
-   direction. No analog travel and no diagonals.
-
-   All four arrows occupy the SAME box, the painted pad at x[0,17%] y[30%,59%]
-   -- grown into the dead bezel on the left, stopping clear of the POINT
-   POSITION panel at 17.12% and the MEASURE disc at 59.08%. Each is then
-   clipped to one triangular quarter of it, meeting at the centre.
-
-   Wedges rather than a plus of rectangles, because the pad is only about
-   99x113px on a landscape phone and four non-overlapping rectangles cannot
-   all clear a 44px thumb target inside it -- there simply is not room. Four
-   wedges tile the same box with no gaps and no overlap, so every pixel of the
-   pad belongs to exactly one direction and the effective target for each is
-   roughly the full width of the pad. That also removes the corner ambiguity
-   overlapping rectangles have, where which direction wins a corner press
-   depends on DOM order rather than on where the thumb actually is.
-
+   All four arrows occupy the SAME box -- the pad art's own box, (34,205) to
+   (422,588), whose centre is the pad's centre -- and each is clipped to one
+   triangular quarter of it, meeting in the middle. Wedges rather than a plus
+   of rectangles so every pixel of the pad belongs to exactly one direction
+   and each direction's target is roughly the full width of the pad.
    clip-path clips hit-testing, not just paint, which is what makes this work.
-   The originals were 28px tiles, which is why the pad read as unresponsive. */
+
+   The pressed and dead looks are painted with a circle the size of the pad
+   (closest-side), so they sit on the round pad and not on the square box's
+   empty corners. */
 .tc-dir {
-  left: 0%; top: 30.0%;
-  width: 17.0%; height: 29.0%;
+  left: 1.771%; top: 15.937%;
+  width: 20.208%; height: 39.896%;
   border-radius: 0;
 }
 .dir-up    { clip-path: polygon(50% 50%,   0%   0%, 100%   0%); }
@@ -616,10 +631,18 @@ html.is-playing, html.is-playing body {
 .dir-down  { clip-path: polygon(50% 50%, 100% 100%,   0% 100%); }
 .dir-left  { clip-path: polygon(50% 50%,   0% 100%,   0%   0%); }
 
+.tc-dir.is-down {
+  background: radial-gradient(circle closest-side,
+              rgba(255,216,61,.42) 0 55%, rgba(245,197,24,.22) 88%, transparent 96%);
+}
+.tc-dir[disabled] {
+  cursor: default;
+  background: radial-gradient(circle closest-side, rgba(0,0,0,.42) 0 95%, transparent 96%);
+}
+
 /* --- RIGHT PAD: the bubble joystick --------------------------------------
-   One round zone covering the whole painted pad, about three times the width
-   of a single old arrow tile. Analog: where the thumb sits in the zone is the
-   rod tilt, which is what lets you chase a tight tolerance with a thumb.
+   One round zone covering the whole pad art, (1495,205) to (1885,588).
+   Analog: where the thumb sits in the zone is the rod tilt.
 
    A div rather than a button on purpose: a stick is dragged, not clicked, and
    a button would fire a synthetic click on release that the stage's
@@ -627,22 +650,21 @@ html.is-playing, html.is-playing body {
 .tc-stick {
   position: absolute;
   pointer-events: auto;
-  top: 33.0%; height: 26.0%;
-  width: 16.5%;
+  left: 77.865%; top: 15.937%;
+  width: 20.312%; height: 39.896%;
   border-radius: 50%;
   touch-action: none;                 /* a drag here is a stick, never a scroll */
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   transition: background-color .1s linear;
 }
-.stick-r { left: 83.5%; }
 
 /* the nub: shows where the stick thinks your thumb is. Parked dead centre and
    invisible until touched, so it never fights the painted artwork. */
 .stick-nub {
   position: absolute;
   left: 50%; top: 50%;
-  width: 34%; aspect-ratio: 1;
+  width: 30%; aspect-ratio: 1;
   margin: 0;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -656,36 +678,34 @@ html.is-playing, html.is-playing body {
 .tc-stick.is-down { background-color: rgba(255,255,255,.07); }
 
 /* Both controls go dead with the panel they drive: the D-pad with the position
-   dial, the joystick with the vial. The pads are painted into the artwork and
-   cannot be hidden, so this only removes the pressable feel. */
-.tc-stick.is-off { cursor: default; background-color: rgba(0,0,0,.34); }
+   dial, the joystick with the vial. */
+.tc-stick.is-off { cursor: default; background-color: rgba(0,0,0,.42); }
 .tc-stick.is-off .stick-nub { opacity: 0; }
-.tc-dir[disabled] { cursor: default; background-color: rgba(0,0,0,.34); }
 
-/* --- MEASURE discs ------------------------------------------------------- */
+/* --- MEASURE buttons ------------------------------------------------------
+   Over the rounded-square MEASURE art: (122,584)-(333,794) and
+   (1586,584)-(1797,794). The corner radius follows the art's. */
 .tc-measure {
-  top: 59.082%; width: 8.138%; height: 12.207%;
-  border-radius: 50%;
+  top: 55.417%; width: 10.990%; height: 21.875%;
+  border-radius: 24%;
 }
-.meas-l { left:  3.776%; }
-.meas-r { left: 87.923%; }
+.meas-l { left:  6.354%; }
+.meas-r { left: 82.604%; }
 .tc-measure.is-down {
   background-color: rgba(245,197,24,.34);
   box-shadow: 0 0 2.2cqw rgba(255,216,61,.8), inset 0 0 1.8cqw rgba(255,216,61,.5);
 }
 
-/* V11: the discs are locked out until the engine says MEASURE is live. The
-   `disabled` attribute is what actually stops the press -- a disabled button
-   fires no pointer events at all -- and this is only how that reads on screen:
-   a dark cap over the painted disc so it is obviously not pressable yet. */
+/* V11: locked out until the engine says MEASURE is live. The `disabled`
+   attribute is what actually stops the press -- a disabled button fires no
+   pointer events at all -- and this is only how that reads on screen: a dark
+   cap over the button art so it is obviously not pressable yet. */
 .tc-measure[disabled] {
   cursor: default;
   background-color: rgba(0,0,0,.52);
   box-shadow: inset 0 0 1.4cqw rgba(0,0,0,.6);
 }
-/* and the opposite: a slow pulse the moment it unlocks, because in BIPOD that
-   is the whole payoff of the read/walk/level loop and it should be impossible
-   to miss */
+/* and a slow pulse the moment it unlocks */
 .tc-measure.is-armed {
   background-color: rgba(34,212,34,.16);
   box-shadow: 0 0 1.8cqw rgba(34,212,34,.55);
@@ -698,73 +718,6 @@ html.is-playing, html.is-playing body {
 @media (prefers-reduced-motion: reduce) {
   .tc-measure.is-armed { animation: none; }
 }
-
-/* ==========================================================================
-   SCREEN 2 - TIMESTAMP: the level stopwatch
-   --------------------------------------------------------------------------
-   Seven-segment digits built from divs - no webfont, no sprite sheet, the same
-   zero-external-asset rule the rest of the type follows. Geometry matches the
-   ghost 88:88:88 in the artwork: housing interior x[826,1227] y[705,777],
-   digits x[877,1179] y[710,772], six 40px digits with 5px inner gaps and 26px
-   colon gaps - that is the 40/5/26 column track list below. .lcd paints over
-   the baked ghosts so the live digits cannot double up on them.
-   ========================================================================== */
-.lcd {
-  position: absolute;
-  left: 53.776%; top: 68.848%; width: 26.107%; height: 7.031%;
-  background: #0d0e0d;          /* sampled from the LCD housing interior */
-  border-radius: .45cqw;
-
-  /* GREEN by default; app.js adds .is-warn past TIME_WARNING_THRESHOLD_SEC */
-  --seg-on:   #2bef2b;
-  --seg-glow: rgba(43,239,43,.55);
-  --seg-off:  #414441;          /* the unlit "ghost" segment */
-}
-.lcd.is-warn {
-  --seg-on:   #ff2a24;
-  --seg-glow: rgba(255,42,36,.55);
-  --seg-off:  #443f3f;
-}
-.lcd-row {
-  position: absolute;
-  left: 12.72%; top: 6.94%; width: 75.31%; height: 86.11%;
-  display: grid;
-  grid-template-columns: 40fr 5fr 40fr 26fr 40fr 5fr 40fr 26fr 40fr 5fr 40fr;
-}
-.lcd-d { position: relative; }
-.lcd-seg {
-  position: absolute;
-  background: var(--seg-off);
-  transition: background-color .12s linear;
-}
-.lcd-seg.is-on { background: var(--seg-on); box-shadow: 0 0 .55cqw var(--seg-glow); }
-
-/* bevelled bars, the way a real LCD cuts its segment corners */
-.lcd-seg.h { left: 8%; width: 84%; height: 13%;
-             clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%); }
-.lcd-seg.v { width: 22%; height: 38%;
-             clip-path: polygon(0 18%, 50% 0, 100% 18%, 100% 82%, 50% 100%, 0 82%); }
-.s-a { top: 0; }
-.s-g { top: 43.5%; }
-.s-d { top: 87%; }
-.s-f { left: 0;  top: 6%; }
-.s-b { right: 0; top: 6%; }
-.s-e { left: 0;  top: 56%; }
-.s-c { right: 0; top: 56%; }
-
-/* colons stay lit, and take the same on-colour as the digits */
-.lcd-colon { position: relative; }
-.lcd-colon::before,
-.lcd-colon::after {
-  content: ""; position: absolute;
-  left: 50%; transform: translateX(-50%);
-  width: 34%; aspect-ratio: 1;
-  border-radius: 20%;
-  background: var(--seg-on);
-  box-shadow: 0 0 .4cqw var(--seg-glow);
-}
-.lcd-colon::before { top: 24%; }
-.lcd-colon::after  { top: 62%; }
 
 /* ==========================================================================
    DOWNLOAD-CONFIRM MODAL
