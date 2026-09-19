@@ -916,7 +916,7 @@ const StakeOut = (function () {
       }  // end of the V11 (no skin) drawing
 
       /* Caption. V8 hung this below the vial at cy+r+46 and cy+r+68, which in
-         art pixels is y=691 and y=712. with_measure_and_clock.png puts the
+         art pixels is y=691 and y=712. the V11 art (with_measure_and_clock.png, retired in V12) put the
          TIMESTAMP housing there (it starts at art y=666, and this canvas has
          already drawn the bezel out to y=662), so below is gone. The one band
          still clear inside the panel is above the vial: art y[332,356], which
