@@ -1,0 +1,18 @@
+# Git LFS for the stills. A 1920x1080 PNG is 2-4 MB and you will generate
+# hundreds; plain git will make cloning this repo miserable within a month.
+#
+# Run `git lfs install` ONCE per machine before your first commit. If you commit
+# big PNGs first and add LFS later, you have to rewrite history to fix it --
+# so do this on day one.
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.webp filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.psd  filter=lfs diff=lfs merge=lfs -text
+
+# Keep text as text so diffs stay readable across Windows and Linux
+*.md   text
+*.txt  text
+*.json text
+*.py   text
+*.tsx  text
+*.ts   text

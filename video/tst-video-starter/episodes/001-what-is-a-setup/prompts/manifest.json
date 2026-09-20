@@ -1,0 +1,72 @@
+{
+  "episode": "001-what-is-a-setup",
+  "title": "What Is a Setup?",
+  "channel": "totalstationtech.com",
+  "base_directive": "brand/base-directive.txt",
+  "negative": "brand/negative.txt",
+  "character_blocks": {
+    "field_tech": "brand/characters/field-tech-01.md"
+  },
+  "defaults": {
+    "width": 1344,
+    "height": 768,
+    "upscale_to": [1920, 1080],
+    "steps": 32,
+    "cfg": 5.5,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+    "batch": 4,
+    "seed": null,
+    "_note": "1344x768 is SDXL-native and closest to 16:9. Generate there, upscale to 1920x1080 for Remotion. Generating straight at 1920x1080 gives you duplicated tripods."
+  },
+  "images": [
+    {
+      "id": "01-hook",
+      "use": "Scene 1 -- Ken Burns fallback for the cold open if real job-site footage isn't available",
+      "needs_character": true,
+      "scene": "A total station mid-setup on an active commercial construction site, tripod legs firmly planted on a structural concrete deck, instrument catching dramatic low-angle light. {field_tech} crouches beside it adjusting a leveling screw, focused and competent -- not posed. Background shows an active but uncluttered construction environment (structural framing, soft depth of field). Composition: diagonal, foreground/subject/background separation, strong hero subject.",
+      "extra_negative": "text overlay, title card, headline",
+      "notes": "No text in the image at all -- every word gets added in Remotion. This is the one shot where photographic realism should win over the sketch aesthetic."
+    },
+    {
+      "id": "02-holodeck-grid",
+      "use": "Scene 2 base image -- coordinate-line draw-on animated in Remotion",
+      "needs_character": false,
+      "scene": "A total station rendered in glowing safety-yellow wireframe against the TotalStationTech holodeck-grid environment: black background, glowing gray gridlines receding to a vanishing point, Star Trek holodeck inspired. Beside and behind the instrument, a ghosted semi-transparent digital CAD building model floats, connected to the instrument by a single glowing yellow coordinate line, with a small XYZ axis marker near the connection point. Reads as real equipment tying into a digital model. The coordinate line is clean, straight and intentional.",
+      "extra_negative": "multiple coordinate lines, tangled lines, busy web of lines, thick line, dashed line",
+      "notes": "Keep the coordinate line SIMPLE -- it gets recolored to red in post for the snap. One line, one stroke weight. If the generator gives you a bundle of lines you cannot cleanly re-color it, reroll."
+    },
+    {
+      "id": "03-occupy-diagram",
+      "use": "Scene 3 base image -- Ken Burns pan",
+      "needs_character": false,
+      "scene": "Clean technical diagram illustration of the occupy method: a total station centered directly over a glowing yellow survey point marker on the ground, the point marked with a small crosshair icon, with a single dashed yellow backsight line extending from the instrument toward a second glowing point near the edge of frame. Minimal, uncluttered composition -- one clear path, communicating simple and direct. Faint blueprint-grid texture in the background. Engineering-sketch-annotation style.",
+      "extra_negative": "multiple lines, fanning lines, three points, crowded annotations, clip art",
+      "notes": "Point LABELS are added in Remotion, not generated. Ask a diffusion model for a labeled survey point and you get 'SUVRAY PT'. Generate the geometry, type the words in post."
+    },
+    {
+      "id": "04-resection-diagram",
+      "use": "Scene 4 base image -- staggered line-draw animation",
+      "needs_character": false,
+      "scene": "Clean technical diagram illustration of the resection method: a total station set up in open space with no survey point directly beneath it, three dashed yellow measurement lines fanning outward at clearly different angles to three separate glowing survey points spread around the instrument, deliberately not in a straight line. Small angle-arc annotations at the instrument where the lines originate. Busier and more dynamic than a single-line diagram, reading as solving and calculating rather than simple, while staying clean enough to parse on a phone screen.",
+      "extra_negative": "points in a straight line, collinear points, single line, two points, four or more points, symmetric fan, crowded text",
+      "notes": "Three points, non-collinear, visibly unequal angles. If the fan comes out symmetric it looks decorative instead of computed -- reroll. Labels in Remotion."
+    },
+    {
+      "id": "05a-occupy-teaser",
+      "use": "Scene 5 outro split-screen -- small crop under the left title card",
+      "needs_character": false,
+      "scene": "Tight cinematic crop of a total station occupying a known survey point, the backsight line clearly visible, dramatic directional lighting, strong silhouette, high contrast. Framed tight with minimal negative space so it reads clearly at small thumbnail size.",
+      "extra_negative": "wide shot, empty space, small subject, low contrast, busy background",
+      "notes": "Sits SMALL under text. Tighter than 03. Subject fills the frame; contrast does the work at thumbnail scale."
+    },
+    {
+      "id": "05b-resection-teaser",
+      "use": "Scene 5 outro split-screen -- small crop under the right title card",
+      "needs_character": false,
+      "scene": "Tight cinematic crop of a total station mid-resection with visible measurement lines fanning out to multiple survey points, dramatic directional lighting, strong silhouette, high contrast. Framed tight with minimal negative space so it reads clearly at small thumbnail size.",
+      "extra_negative": "wide shot, empty space, small subject, low contrast, busy background",
+      "notes": "Must read as visibly BUSIER than 05a at thumbnail size -- that contrast between the two crops is the whole point of the split screen."
+    }
+  ]
+}

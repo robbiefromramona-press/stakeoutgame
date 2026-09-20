@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────────────
+# THE BIG ONE: never commit models or the generator itself.
+# A single SDXL checkpoint is 6 GB. GitHub's hard limit is 100 MB per file.
+# Ask how many people have learned this the hard way.
+# ──────────────────────────────────────────────────────────────────────
+ComfyUI/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+models/
+loras/
+vae/
+embeddings/
+
+# Generated prompt text -- rebuilt from the manifest in one command
+episodes/*/prompts/build/
+
+# Contact-sheet rejects. Keep your picks, bin the other 40.
+episodes/*/stills/rejects/
+episodes/*/stills/**/*_raw.png
+
+# Rendered video -- regenerate from source, don't archive it in git
+remotion/out/
+*.mp4
+*.mov
+*.webm
+*.prores
+
+# Node / Remotion
+node_modules/
+.remotion/
+dist/
+.cache/
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

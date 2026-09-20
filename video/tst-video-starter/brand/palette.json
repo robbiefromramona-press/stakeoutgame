@@ -1,0 +1,11 @@
+{
+  "safety_yellow":  "#F2C200",
+  "charcoal":       "#1B1D20",
+  "near_black":     "#0C0D0F",
+  "white":          "#F7F7F5",
+  "construction_orange": "#E8701A",
+  "steel_gray":     "#8A9199",
+  "electric_cyan":  "#2FD4E8",
+  "alert_red":      "#E03030",
+  "_notes": "Yellow is the only primary accent. Cyan is for digital/data overlays only. Red is reserved for lasers, warnings and error states -- never decoration."
+}
