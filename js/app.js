@@ -51,6 +51,8 @@
     // under the player's thumb. Lifted again on the menu and the report, which
     // are ordinary scrollable pages. See html.is-playing in styles.css.
     document.documentElement.classList.toggle('is-playing', name === 'player');
+    // The legal links belong on the menu only, not over the instrument.
+    document.documentElement.classList.toggle('is-menu', name === 'menu');
     window.scrollTo(0, 0);
   }
 

@@ -841,3 +841,25 @@ html.is-playing, html.is-playing body {
 @media (orientation: portrait) and (max-width: 900px) {
   #screen-player.is-active .rotate-hint { display: block; animation: sgPulse 1.8s infinite; }
 }
+
+
+/* ==========================================================================
+   LEGAL LINKS
+   Viewport-fixed rather than placed inside .stage: the menu is a measured
+   overlay on the concept art in container-query units, and anything added
+   inside it would have to be re-measured. Shown on the menu only.
+   ========================================================================== */
+#legalBar {
+  display: none;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 11px; letter-spacing: .4px;
+  color: rgba(255, 255, 255, .42);
+  background: linear-gradient(to top, rgba(0, 0, 0, .85), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+html.is-menu #legalBar { display: block; }
+#legalBar a { color: rgba(255, 255, 255, .62); text-decoration: none; pointer-events: auto; }
+#legalBar a:hover, #legalBar a:focus-visible { color: #ffd23f; }
