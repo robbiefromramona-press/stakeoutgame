@@ -15,9 +15,10 @@
      8. (V12 only, skipped with --no-layers) every art layer, canvas and
         hotspot stays registered to the others at several window sizes and
         across a rotate
-     9. (V12.5) the dial is the right way round -- the crosshair is the rod and
-        moves with input, the blurred point stays at the centre -- plus the
-        hold-distance curve and the halved POLE idle drift
+     9. (V12.5) the dial is the right way round -- the crosshair painted at the
+        centre of the face is the rod, and the blurred blob is the point, on
+        the side the point actually lies -- plus the hold-distance curve and
+        the halved POLE idle drift
 
    There is no package.json in this repo (no build step), so install
    Playwright somewhere once and point NODE_PATH at it, or run from a folder
@@ -255,38 +256,87 @@ async function tap(page, selector) {
   }
 
   console.log('\n[9] V12.5 mechanics');
-  /* (a) the dial is the right way round: the crosshair is the pole and moves
-     with input; the blurred point stays at the centre of the dial. */
+  /* (a) the dial is the right way round. It is a plan view centred on the rod:
+     the crosshair painted at the centre of the face is the pole and never
+     moves, and the blurred blob is the point, on the side of the crosshair the
+     point actually lies. Point ahead of you -> blob at the TOP of the dial and
+     the top triangle lit; walk towards it and the blob comes down to meet the
+     crosshair. Up to V12 the blob sat on the opposite side. */
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.evaluate(() => StakeOutApp.launch(0, 'pole'));
   await page.keyboard.press('Space');
   await page.waitForTimeout(900);
-  const centre = await page.evaluate(() => ({ cx: 214, cy: 214 }));   // POS_GAUGE
+  const centre = { cx: 214, cy: 214 };   // POS_GAUGE
   const rod0 = await page.evaluate(() => StakeOutApp.game.rodOffsetFt);
-  const tip0 = await page.evaluate(() => StakeOutApp.game.poleTipXY);
-  // a good long walk: the dial's radial scale is heavily compressed at range,
-  // so a short hop moves the crosshair by only a pixel or two
-  await page.keyboard.down('w'); await page.waitForTimeout(1800); await page.keyboard.up('w');
-  await page.waitForTimeout(900);
-  const rod1 = await page.evaluate(() => StakeOutApp.game.rodOffsetFt);
-  const tip1 = await page.evaluate(() => StakeOutApp.game.poleTipXY);
-  check('walking UP walks the rod north', rod1.y < rod0.y - 0.5,
-    rod0.y.toFixed(2) + ' -> ' + rod1.y.toFixed(2) + ' ft');
-  // the dial's scale is compressed, and the more so the further out you are,
-  // so this asserts the DIRECTION is right rather than any particular travel
-  check('walking UP moves the crosshair up the dial', tip1.y < tip0.y - 0.05,
-    'y ' + tip0.y.toFixed(2) + ' -> ' + tip1.y.toFixed(2));
-  check('the crosshair is off centre, i.e. it is not the point',
-    Math.hypot(tip1.x - centre.cx, tip1.y - centre.cy) > 2);
-  // and west is left, whichever side of the point you are on -- the per-axis
-  // mapping is what guarantees this, a radial one does not
-  const tipW0 = await page.evaluate(() => StakeOutApp.game.poleTipXY);
-  await page.keyboard.down('a'); await page.waitForTimeout(900); await page.keyboard.up('a');
-  await page.waitForTimeout(900);
-  const tipW1 = await page.evaluate(() => StakeOutApp.game.poleTipXY);
-  check('walking LEFT moves the crosshair left', tipW1.x < tipW0.x - 0.05,
-    'x ' + tipW0.x.toFixed(2) + ' -> ' + tipW1.x.toFixed(2));
-  // the point itself is drawn at the dial centre: brightest pixels cluster there
+  const blob0 = await page.evaluate(() => StakeOutApp.game.pointBlobXY);
+  // rodOffsetFt is the rod's offset FROM the point, so a positive y means the
+  // point is north of you, the top triangle lights, and the blob belongs ABOVE
+  // the centre of the dial -- and likewise for x
+  check('the blob is on the same side as the point, north/south',
+    Math.sign(blob0.y - centre.cy) === -Math.sign(rod0.y),
+    'rod y ' + rod0.y.toFixed(2) + ' ft, blob y ' + blob0.y.toFixed(1));
+  check('the blob is on the same side as the point, east/west',
+    Math.sign(blob0.x - centre.cx) === -Math.sign(rod0.x),
+    'rod x ' + rod0.x.toFixed(2) + ' ft, blob x ' + blob0.x.toFixed(1));
+  // the lit triangles say which way to walk; the blob must agree with them
+  const tri = await page.evaluate(() => {
+    const r = StakeOutApp.game.rodOffsetFt;
+    return { up: r.y > 0.03, down: r.y < -0.03, left: r.x > 0.03, right: r.x < -0.03 };
+  });
+  check('the blob agrees with the lit triangle',
+    (!tri.up || blob0.y < centre.cy) && (!tri.down || blob0.y > centre.cy) &&
+    (!tri.left || blob0.x < centre.cx) && (!tri.right || blob0.x > centre.cx),
+    JSON.stringify(tri) + ' blob ' + blob0.x.toFixed(0) + ',' + blob0.y.toFixed(0));
+
+  /* Which way the blob travels. Walking north lowers the rod's northing, so
+     the blob comes DOWN the face; walking west sends it RIGHT. That holds
+     wherever you are, including walking straight past the point, which is why
+     it is asserted here rather than "the blob got closer" -- a walk that
+     overshoots would fail that while behaving perfectly. */
+  async function blobAfter(key, ms) {
+    const a = await page.evaluate(() => StakeOutApp.game.pointBlobXY);
+    await page.keyboard.down(key);
+    await page.waitForTimeout(ms);
+    await page.keyboard.up(key);
+    await page.waitForTimeout(900);      // let the reading land
+    const b = await page.evaluate(() => StakeOutApp.game.pointBlobXY);
+    return { a: a, b: b };
+  }
+  const nS = await blobAfter('w', 600);
+  check('walking north brings the blob down the dial', nS.b.y > nS.a.y + 0.05,
+    'y ' + nS.a.y.toFixed(2) + ' -> ' + nS.b.y.toFixed(2));
+  const eW = await blobAfter('a', 600);
+  check('walking west sends the blob right across the dial', eW.b.x > eW.a.x + 0.05,
+    'x ' + eW.a.x.toFixed(2) + ' -> ' + eW.b.x.toFixed(2));
+
+  /* And the thing that matters in play: walk towards the point and the blob
+     closes on the crosshair while the reading shrinks. Done on whichever axis
+     we are furthest out on, and only when there is room to walk without
+     sailing past it. */
+  const rodN = await page.evaluate(() => StakeOutApp.game.rodOffsetFt);
+  const useY = Math.abs(rodN.y) >= Math.abs(rodN.x);
+  const gap = useY ? rodN.y : rodN.x;
+  if (Math.abs(gap) > 2) {
+    const key = useY ? (gap > 0 ? 'w' : 's') : (gap > 0 ? 'a' : 'd');
+    const blobB = await page.evaluate(() => StakeOutApp.game.pointBlobXY);
+    const walk = await blobAfter(key, 1000);           // about 1 ft
+    const rodAfter = await page.evaluate(() => StakeOutApp.game.rodOffsetFt);
+    const was = Math.abs(gap);
+    const now = Math.abs(useY ? rodAfter.y : rodAfter.x);
+    const dWas = Math.abs((useY ? blobB.y - centre.cy : blobB.x - centre.cx));
+    const dNow = Math.abs((useY ? walk.b.y - centre.cy : walk.b.x - centre.cx));
+    check('walking towards the point shortens the reading', now < was - 0.3,
+      was.toFixed(2) + ' -> ' + now.toFixed(2) + ' ft on ' + (useY ? 'TO/AWAY' : 'LEFT/RIGHT'));
+    check('walking towards the point brings the blob towards the crosshair',
+      dNow < dWas - 0.5,
+      'from centre ' + dWas.toFixed(1) + ' -> ' + dNow.toFixed(1) + ' units');
+  } else {
+    check('walking towards the point shortens the reading', true, 'skipped: started on the point');
+    check('walking towards the point brings the blob towards the crosshair', true, 'skipped');
+  }
+
+  // and nothing is drawn at the centre of the face: the crosshair there is the
+  // dial's own art, and the blob is out where the point is
   const glow = await page.evaluate(() => {
     const c = document.getElementById('posCanvas');
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
@@ -301,17 +351,17 @@ async function tap(page, selector) {
         const i = (y * c.width + x) * 4;
         const a = d[i + 3];
         if (a < 40) continue;
-        // weight by alpha squared, so the broad soft glow dominates the thin
-        // crosshair rather than the other way round
         const w = a * a;
         sx += x * w; sy += y * w; sw += w;
       }
     }
-    return { x: sx / sw / 2, y: sy / sw / 2 };    // /2 = canvas backing scale
+    return sw ? { x: sx / sw / 2, y: sy / sw / 2 } : null;
   });
-  check('the blurred point sits at the dial centre',
-    Math.hypot(glow.x - centre.cx, glow.y - centre.cy) < 18,
-    'centroid ' + glow.x.toFixed(0) + ',' + glow.y.toFixed(0));
+  const blobNow = await page.evaluate(() => StakeOutApp.game.pointBlobXY);
+  check('what is painted on the face is the blob, where the point is',
+    glow && Math.hypot(glow.x - blobNow.x, glow.y - blobNow.y) < 26,
+    glow ? 'centroid ' + glow.x.toFixed(0) + ',' + glow.y.toFixed(0) +
+      ' vs blob ' + blobNow.x.toFixed(0) + ',' + blobNow.y.toFixed(0) : 'nothing drawn');
 
   /* (b) the hold curve: distance goes with the square of the hold. */
   async function holdFor(ms) {

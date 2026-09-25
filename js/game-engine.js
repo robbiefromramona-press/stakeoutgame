@@ -3,13 +3,15 @@
    --------------------------------------------------------------------------
    V12.5 is a feel pass. Three things changed, and nothing else:
 
-   1. THE DIAL IS NO LONGER INSIDE OUT. The blurred blob is the hidden survey
-      point now, parked at the centre of the dial and staying there; the
-      crosshair is the pole tip and is what moves when you press a direction.
-      Up to V12 those roles were the other way round, so pressing UP walked
-      the blob instead of you. Rendering only -- the readouts, the triangles,
-      the on-line test and the pass/fail test all read the same numbers as
-      before. See poleTipXY().
+   1. THE DIAL IS NO LONGER INSIDE OUT. The dial is a plan view centred on
+      the rod, the way a data collector's stakeout screen is: the crosshair
+      painted at the centre of the face is the pole and never moves, and the
+      blurred blob is the point, plotted where it lies relative to you. Up to
+      V12 the blob was plotted on the WRONG SIDE of the crosshair -- point 5 ft
+      ahead, TO/AWAY reading 5.000, top triangle lit, and the blob down at the
+      bottom of the dial. Rendering only -- the readouts, the triangles, the
+      on-line test and the pass/fail test all read the same numbers as before.
+      See pointBlobXY().
 
    2. MOVEMENT IS A HOLD CURVE, NOT A FLAT SPEED. Distance now goes with the
       square of how long a direction is held, so a quick tap is worth about
@@ -254,14 +256,6 @@ const StakeOut = (function () {
   const PIP_RADIUS = 60;       // was 6 in V10 -- "scale up ~1000%"
   const PIP_BLUR_PX = 18;      // extra canvas blur on top of the soft gradient
 
-  /* V12.5: the pole-tip crosshair, in canvas units, for the no-skin fallback
-     drawing. The skinned path takes the same shape from ui-skin.js so both
-     look identical; this copy only exists so the fallback still runs if the
-     shell hands the engine no skin at all. */
-  const POLE_TIP_FALLBACK = {
-    arm: 26, gap: 7, ring: 5.5, width: 2.4,
-    color: '#ffffff', shadow: 'rgba(0,0,0,0.8)'
-  };
 
   /* ---- V10: bubble "personality" ----------------------------------------
      Everything below shapes how the spring/damper reacts depending on (a)
@@ -822,87 +816,52 @@ const StakeOut = (function () {
       else { pctx.fillStyle = '#000'; pctx.fill(); pctx.strokeStyle = YELLOW; pctx.lineWidth = 2; pctx.stroke(); }
     }
 
-    /* ---- V12.5: where the pole tip sits on the dial -------------------------
+    /* ---- V12.5: where the point's blob sits on the dial ---------------------
+       The dial is a plan view centred on the rod, the way a data collector's
+       stakeout screen is: the crosshair painted at the centre of the face IS
+       the pole, it never moves, and the blurred blob is the hidden point lying
+       out there somewhere relative to you.
+
        lastRevealed is the rod's offset FROM the point, in feet, as of the last
-       reading. The dial plots it on a compressed radial scale so a long way off
-       still fits on the face and no distance can be read off by eye -- that
-       scale is V11's, unchanged.
+       reading, so the point relative to the ROD is the NEGATIVE of it -- and
+       that minus sign is the whole V12.5 inversion. Up to V12 the blob was
+       plotted at +lastRevealed, which put it on the wrong side of the
+       crosshair: with the point 5 ft ahead, the TO/AWAY box read 5.000 and the
+       top triangle lit, but the blob sat at the BOTTOM of the dial. Now it
+       sits at the top, where the point is, and walking towards it brings it
+       down the face to meet the crosshair.
 
-       What V12.5 changes is which end of that vector each graphic is. Up to
-       V12 the dial was drawn from the rod's point of view: the point sat at the
-       centre and the blurred blob was the rod, so pressing UP walked the BLOB.
-       That is backwards -- you are the rod. So now:
+       Nothing else moved: the readouts, the triangles, the on-line test and
+       the pass/fail test all read exactly the numbers they always did.
 
-           the blurred glow  = the hidden survey point, parked at the centre,
-                               fixed, and still blurred so it cannot be
-                               eyeballed to the foot
-           the crosshair     = the pole tip, which is what moves when you press
-                               a direction (and what the POLE-mode idle drift
-                               creeps)
-
-       The maths is identical either way -- the crosshair now goes exactly where
-       the blob used to -- so the LEFT/RIGHT and TO/AWAY readouts, the
-       triangles, the on-line test and the pass/fail test all read the same
-       numbers they always did. */
-    /* The compression is PER AXIS, which is a change from V11 and is the whole
-       reason the crosshair reads as yours.
-
-       V11 compressed the distance radially: bearing exact, distance squashed.
-       That was fine for a blob that only said "the point is over there", but it
-       is wrong for a marker that represents the player, because the screen
-       direction the marker moves is then not the direction you walked. Measured
-       on the real thing: standing north-west of the point and walking further
-       north-west moved the marker LEFT and slightly DOWN, because the bearing
-       rotated while the squashed distance was already near its limit. Press up,
-       watch yourself go down -- exactly the complaint V12.5 exists to fix.
-
-       tanh on each axis on its own is monotonic in that axis, so north is
-       always up the dial and west is always left, however far out you are. The
-       scale is still deeply compressed (a foot near the centre is worth far
-       more pixels than a foot out at 10 ft) so distance still cannot be read
-       off the face -- which, with the point drawn as a blur, is the point.
+       The compression is per axis rather than V11's radial squash. A radial
+       squash keeps the bearing exact but distorts which way the blob travels
+       as you walk -- measured on the real thing, walking north-west from
+       north-west of the point slid the blob sideways instead of straight down
+       the face. tanh on each axis on its own is monotonic in that axis, so
+       walking north always brings the blob down the dial and walking west
+       always brings it right, from anywhere on the face. It stays deeply
+       compressed, so distance still cannot be read off the face -- which,
+       with the point drawn as a blur, is the point.
 
        HALF rather than the full radius because two axes at full travel would
        put the corners outside the dial face; at HALF = r*0.92/sqrt(2) the
        corner of the square lands exactly on the rim. */
     /* Feet per unit of tanh. V11's radial squash used 4, which saturates so
-       hard that from 10 ft out a three-foot walk moved the marker by half a
+       hard that from 10 ft out a three-foot walk moved the blob by half a
        pixel -- it looked frozen while the readouts were plainly changing. 7
        spreads the 3-12 ft spawn range across roughly 0.40 to 0.94 of the
        dial's half-travel, so there is always something to see, while a foot
        near the centre is still worth several times a foot out at the rim. */
-    const TIP_FT_SCALE = 7;
-    function poleTipXY() {
+    const BLOB_FT_SCALE = 7;
+    function pointBlobXY() {
       const { cx, cy, r } = POS_GAUGE;
       const half = r * 0.92 / Math.SQRT2;
+      // the minus sign is the inversion: the point relative to the rod
       return {
-        x: cx + half * Math.tanh(lastRevealed.x / TIP_FT_SCALE),
-        y: cy + half * Math.tanh(lastRevealed.y / TIP_FT_SCALE)
+        x: cx - half * Math.tanh(lastRevealed.x / BLOB_FT_SCALE),
+        y: cy - half * Math.tanh(lastRevealed.y / BLOB_FT_SCALE)
       };
-    }
-
-    /* The pole tip marker. Drawn rather than cut from the art because there is
-       no artwork for it -- the V12 layers paint the dial's own faint graticule
-       and rings, but nothing that represents the rod. Kept deliberately thin
-       and bright so it reads against both the dark face and the glow. */
-    function drawPoleTip(spec) {
-      const p = poleTipXY();
-      const arm = spec.arm, gap = spec.gap;
-      pctx.save();
-      pctx.lineCap = 'round';
-      // a dark outline first, so the crosshair survives crossing the glow
-      [[spec.shadow, spec.width + 2.5], [spec.color, spec.width]].forEach(function (pass) {
-        pctx.strokeStyle = pass[0];
-        pctx.lineWidth = pass[1];
-        pctx.beginPath();
-        pctx.moveTo(p.x - arm, p.y); pctx.lineTo(p.x - gap, p.y);
-        pctx.moveTo(p.x + gap, p.y); pctx.lineTo(p.x + arm, p.y);
-        pctx.moveTo(p.x, p.y - arm); pctx.lineTo(p.x, p.y - gap);
-        pctx.moveTo(p.x, p.y + gap); pctx.lineTo(p.x, p.y + arm);
-        pctx.stroke();
-        pctx.beginPath(); pctx.arc(p.x, p.y, spec.ring, 0, Math.PI * 2); pctx.stroke();
-      });
-      pctx.restore();
     }
 
     /* V12: with a skin (the V12 art, see ui-skin.js) the dial face, rings and
@@ -920,21 +879,18 @@ const StakeOut = (function () {
       });
       pctx.globalAlpha = 1;
 
-      pctx.save();
-      pctx.beginPath(); pctx.arc(cx, cy, r, 0, Math.PI * 2); pctx.clip();
-
-      // the point: fixed at the centre. It is not a reading, so unlike the
-      // crosshair it stays put while a fresh fix is being computed.
-      if (skin.isReady(skin.glow.img)) {
+      // the point, out where it lies relative to the rod. Hidden while the
+      // readouts are, because where it sits on the dial IS the reading.
+      if (readoutsVisible && skin.isReady(skin.glow.img)) {
+        const p = pointBlobXY();
+        pctx.save();
+        // clip to the dial face so the blob cannot smear over the bezel
+        pctx.beginPath(); pctx.arc(cx, cy, r, 0, Math.PI * 2); pctx.clip();
         pctx.globalAlpha = skin.glow.alpha;
         const g = skin.glow.r;
-        pctx.drawImage(skin.glow.img, cx - g, cy - g, g * 2, g * 2);
-        pctx.globalAlpha = 1;
+        pctx.drawImage(skin.glow.img, p.x - g, p.y - g, g * 2, g * 2);
+        pctx.restore();
       }
-      // the rod: hidden while the readouts are, because where it sits on the
-      // dial IS the reading
-      if (readoutsVisible) drawPoleTip(skin.poleTip);
-      pctx.restore();
     }
 
     function drawPositionGauge() {
@@ -963,10 +919,11 @@ const StakeOut = (function () {
       drawTriangle({x:cx-apex,y:cy}, {x:cx-base,y:cy-half}, {x:cx-base,y:cy+half}, s.left);
       drawTriangle({x:cx+apex,y:cy}, {x:cx+base,y:cy-half}, {x:cx+base,y:cy+half}, s.right);
 
-      /* Display only, and the same two graphics the skinned path draws, so the
+      /* Display only, and the same graphic the skinned path draws, so the
          fallback cannot drift away from the real thing: the hidden point as a
-         blurred blob parked at the centre, and the pole tip as a crosshair at
-         the compressed offset (see poleTipXY and the V12.5 note there).
+         blurred blob, plotted where it lies relative to the rod (see
+         pointBlobXY and the V12.5 note there). The crosshair at the centre of
+         the face is the rod and is painted by the dial itself.
 
          The blob is a PIP_RADIUS haze rather than a dot on purpose -- you can
          see roughly where the point is and you cannot possibly eyeball it to
@@ -974,20 +931,21 @@ const StakeOut = (function () {
          soft falloff is a radial gradient, which every browser draws; the
          canvas blur filter on top is a bonus where it is supported and simply
          does nothing where it is not. */
-      pctx.save();
-      // clip to the dial face so the blob cannot smear over the bezel
-      pctx.beginPath(); pctx.arc(cx, cy, r, 0, Math.PI * 2); pctx.clip();
-      if ('filter' in pctx) pctx.filter = 'blur(' + PIP_BLUR_PX + 'px)';
-      const haze = pctx.createRadialGradient(cx, cy, 0, cx, cy, PIP_RADIUS);
-      haze.addColorStop(0,    'rgba(255,255,255,0.55)');
-      haze.addColorStop(0.45, 'rgba(255,255,255,0.26)');
-      haze.addColorStop(0.75, 'rgba(255,255,255,0.09)');
-      haze.addColorStop(1,    'rgba(255,255,255,0)');
-      pctx.fillStyle = haze;
-      pctx.beginPath(); pctx.arc(cx, cy, PIP_RADIUS, 0, Math.PI * 2); pctx.fill();
-      if ('filter' in pctx) pctx.filter = 'none';
-      if (readoutsVisible) drawPoleTip(POLE_TIP_FALLBACK);
-      pctx.restore();
+      if (readoutsVisible) {
+        const p = pointBlobXY();
+        pctx.save();
+        // clip to the dial face so the blob cannot smear over the bezel
+        pctx.beginPath(); pctx.arc(cx, cy, r, 0, Math.PI * 2); pctx.clip();
+        if ('filter' in pctx) pctx.filter = 'blur(' + PIP_BLUR_PX + 'px)';
+        const haze = pctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, PIP_RADIUS);
+        haze.addColorStop(0,    'rgba(255,255,255,0.55)');
+        haze.addColorStop(0.45, 'rgba(255,255,255,0.26)');
+        haze.addColorStop(0.75, 'rgba(255,255,255,0.09)');
+        haze.addColorStop(1,    'rgba(255,255,255,0)');
+        pctx.fillStyle = haze;
+        pctx.beginPath(); pctx.arc(p.x, p.y, PIP_RADIUS, 0, Math.PI * 2); pctx.fill();
+        pctx.restore();
+      }
       pctx.restore();
     }
 
@@ -1231,10 +1189,10 @@ const StakeOut = (function () {
       get onLine() { return onLine; },
       get bubbleOffsetPct() { return Math.hypot(bubble.x, bubble.y) * 100; },
       // V12.5 read-only windows, for console poking and the smoke pass:
-      // where the rod actually is, in feet from the point, and where its
-      // crosshair is being drawn on the dial, in canvas units
+      // where the rod actually is, in feet from the point, and where the
+      // point's blob is being drawn on the dial, in canvas units
       get rodOffsetFt() { return { x: pos.x, y: pos.y }; },
-      get poleTipXY() { return poleTipXY(); }
+      get pointBlobXY() { return pointBlobXY(); }
     };
   }
 
