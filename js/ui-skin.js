@@ -105,7 +105,20 @@ const StakeOutSkin = (function () {
     pos: {
       tri: tri,
       unlitAlpha: 0.14,                 // a dark triangle reads as an unlit lamp
-      glow: { img: sprite('point_glow'), r: 78, alpha: 0.62 }
+      glow: { img: sprite('point_glow'), r: 78, alpha: 0.62 },
+      /* V12.5: the pole tip. The dial art has no graphic for the rod -- it
+         paints the face, the rings and the faint graticule and nothing else --
+         so this one marker is drawn rather than cut from a sprite. Sizes are
+         in the engine's canvas units, where the dial radius is 122, so the
+         crosshair spans about a fifth of the face. */
+      poleTip: {
+        arm: 26,            // half-length of each arm
+        gap: 7,             // clear space at the centre, so the tip is a point
+        ring: 5.5,          // the small circle at the tip
+        width: 2.4,
+        color: '#ffffff',
+        shadow: 'rgba(0,0,0,0.8)'   // outline, to survive crossing the glow
+      }
     },
     bub: {
       bubble: { img: sprite('bubble'), r: 40 * (ENGINE_BUB.r / VIAL.r) }
