@@ -401,6 +401,44 @@ async function tap(page, selector) {
     poleDrift > 0 && poleDrift <= 0.055, poleDrift.toFixed(4) + ' ft in 4 s');
   check('BIPOD still does not drift at all', bipodDrift < 0.0005, bipodDrift.toFixed(5) + ' ft in 4 s');
 
+  console.log('\n[10] V12.5a quit plate and readout order');
+  await page.evaluate(() => StakeOutApp.launch(0, 'bipod'));
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(200);
+  // the plate sits on the painted logo at the bottom of the bezel
+  const plate = await page.evaluate(() => {
+    const a = document.getElementById('quitPlate').getBoundingClientRect();
+    const b = document.querySelector('.layer-logo-bottom').getBoundingClientRect();
+    return Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top),
+                    Math.abs(a.width - b.width), Math.abs(a.height - b.height));
+  });
+  check('the quit plate sits on the painted logo', plate <= 1, plate.toFixed(2) + 'px');
+  await tap(page, '#quitPlate');
+  check('tapping the plate quits to the menu',
+    (await page.evaluate(() => StakeOutApp.getState().currentScreen)) === 'menu');
+  check('the level stopped when it quit',
+    (await page.evaluate(() => StakeOutApp.game.isActive)) === false);
+  // and it must not have logged a shot on the way out
+  await page.evaluate(() => StakeOutApp.launch(0, 'pole'));
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(400);
+  await tap(page, '#quitPlate');
+  await page.waitForTimeout(200);
+  check('quitting does not fire a measurement',
+    (await page.evaluate(() => StakeOutApp.getState().currentScreen)) === 'menu' &&
+    (await page.textContent('#hudPoint')) === '1');
+
+  // TO/AWAY is the left-hand box now, LEFT/RIGHT the right-hand one
+  await page.evaluate(() => StakeOutApp.launch(0, 'pole'));
+  await page.waitForTimeout(200);
+  const order = await page.evaluate(() => {
+    const r = (s) => document.querySelector(s).getBoundingClientRect();
+    return { ta: r('.ro-2').left, lr: r('.ro-1').left, ts: r('.lcd').left };
+  });
+  check('TO/AWAY sits left of LEFT/RIGHT', order.ta < order.lr,
+    'TO/AWAY ' + order.ta.toFixed(0) + ' vs LEFT/RIGHT ' + order.lr.toFixed(0));
+  check('TIMESTAMP is still the right-hand box', order.lr < order.ts);
+
   check('no console errors', errors.length === 0, errors.join(' | '));
   await browser.close();
   console.log('\n' + passes + ' passed, ' + failures + ' failed');

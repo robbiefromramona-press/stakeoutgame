@@ -201,6 +201,37 @@ for name, (x0, y0, x1, y1, sx) in LCD_BOXES.items():
     row_clone_fill(x0, y0, x1, y1, sx)
     note('lcd %-6s : digits painted out  box x %d..%d  y %d..%d' % (name, x0, x1, y0, y1))
 
+# ---- (c2) V12.5a: swap the LEFT/RIGHT and TO/AWAY labels ---------------------
+# Real data collectors put TO/AWAY on the left, nearest the up/down triangles,
+# and the art has them the other way round. The values are moved by swapping
+# two CSS boxes; the LABELS are painted into the art, so they are swapped here:
+# each label's pixels are lifted out, both label bands are wiped with the flat
+# panel behind them, and each is pasted back centred in the other box.
+LABEL_BOX = {          # interior of each readout box, measured off the art
+    'lr': (452, 773),
+    'ta': (788, 1112),
+}
+LABEL_TEXT = {         # the label's own pixels
+    'lr': (526, 674, 690, 702),
+    'ta': (875, 674, 1015, 702),
+}
+lifted = {}
+for name, (tx0, ty0, tx1, ty1) in LABEL_TEXT.items():
+    lifted[name] = work[ty0:ty1, tx0:tx1].copy()
+before_lab = work.copy()
+for name in LABEL_TEXT:
+    bx0, bx1 = LABEL_BOX[name]
+    tx0, ty0, tx1, ty1 = LABEL_TEXT[name]
+    for y in range(ty0, ty1):
+        work[y, bx0 + 4:bx1 - 4] = before_lab[y, bx0 + 6]
+for name, other in (('lr', 'ta'), ('ta', 'lr')):
+    bx0, bx1 = LABEL_BOX[name]
+    art = lifted[other]
+    tx0, ty0, tx1, ty1 = LABEL_TEXT[other]
+    px = int((bx0 + bx1) / 2 - art.shape[1] / 2)
+    work[ty0:ty1, px:px + art.shape[1]] = art
+    note('label swap : %s box now carries the %s label at x %d' % (name, other, px))
+
 # ---- (d) the four triangles ---------------------------------------------------
 # Each is cut out as a sprite (so the game can light it or leave it dark) and
 # then painted out of the base. Up/down sit on horizontal structure (the dial

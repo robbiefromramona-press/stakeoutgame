@@ -517,9 +517,22 @@
   window.addEventListener('keydown', function (e) {
     if (currentScreen === 'player' && e.key === 'Escape') {
       e.preventDefault();
-      game.stop();
-      showScreen('menu');
+      quitToMenu();
     }
+  });
+
+  /* V12.5a: the same abort, for a thumb. The TOTALSTATIONTECH plate along the
+     bottom of the bezel is the escape button on a touchscreen, where there is
+     no ESC key. stopPropagation is belt and braces on top of the plate's
+     data-nomeasure: a tap here must never reach tap-to-measure. */
+  function quitToMenu() {
+    game.stop();
+    showScreen('menu');
+  }
+
+  $('quitPlate').addEventListener('click', function (e) {
+    e.stopPropagation();
+    quitToMenu();
   });
 
   function launch(levelIndex, mode) {

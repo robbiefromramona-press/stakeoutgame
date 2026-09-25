@@ -8,6 +8,8 @@ bubble     : painted out, r=46, crosshair rows [474, 475, 476]
 lcd lr     : digits painted out  box x 476..716  y 716..787
 lcd ta     : digits painted out  box x 807..1051  y 716..787
 lcd ts     : digits painted out  box x 1140..1474  y 716..790
+label swap : lr box now carries the ta label at x 542
+label swap : ta box now carries the lr label at x 868
 triangle up   : sprite box (668, 270, 64, 42)
 triangle down : sprite box (666, 634, 65, 41)
 triangle left : sprite box (469, 442, 49, 68)
