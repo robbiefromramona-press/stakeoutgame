@@ -1,11 +1,35 @@
-# Stake-Out has no build step — it's plain HTML/CSS/JS served from the repo
-# root. Declaring that here means a Git-linked deploy needs no settings in the
-# Netlify UI, and nothing tries to detect a framework that isn't there.
+# Stake-Out is plain HTML/CSS/JS served from the repo root. Declaring that here
+# means a Git-linked deploy needs no settings in the Netlify UI, and nothing
+# tries to detect a framework that isn't there.
+#
+# The build command minifies the three JS files in place, in Netlify's own
+# checkout, on the way to publishing. Your source files are never touched by it
+# -- run it locally only if you want to see the output.
+#
+# Why bother: the sources carry the whole tuning history in their comments
+# (which number does what, what was measured, what was tried and rejected).
+# Minifying strips all of that and renames the internals. It does NOT make the
+# game secret -- anything the browser runs can be read, and the LEVELS numbers
+# are still numbers in the output. It just means a copy costs real work instead
+# of a right-click.
+#
+# Verified: the full tests/smoke.js pass (103/103) against the minified build.
 
 [build]
   publish = "."
+  command = "npx --yes esbuild@0.25.0 js/app.js js/game-engine.js js/ui-skin.js --minify --allow-overwrite --outdir=js"
 
 # The port used by `python -m http.server` locally, for `netlify dev`.
 [dev]
   framework = "#static"
   publish = "."
+
+# ---- Password protection (free alternative to Netlify's Pro-only feature) ----
+# Runs on every request, before anything is served. The password itself is NOT
+# here: set BASIC_AUTH_CREDENTIALS in the Netlify dashboard for this site
+# (Site configuration > Environment variables), format  username:password
+# -- space-separated for several. With that variable unset this does nothing
+# and the site stays public. See netlify/edge-functions/basic-auth.ts.
+[[edge_functions]]
+  path = "/*"
+  function = "basic-auth"
